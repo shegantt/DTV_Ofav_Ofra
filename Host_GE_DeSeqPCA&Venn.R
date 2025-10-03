@@ -50,7 +50,7 @@ gsg = goodSamplesGenes(datExpr0, verbose = 3)
 gsg$allOK # TRUE
 
 #import trait data and format dataframe for WGCNA
-datTraits = read.csv("~/Desktop/BU NSF Postdoc/Nicola_Ofav_chpt3/THERMVAR_MAIN_METADATA_Apr25_clonesfixed.csv",row.names = 1)
+datTraits = read.csv("~/path/THERMVAR_MAIN_METADATA_Apr25_clonesfixed.csv",row.names = 1)
 
 datTraits$Timepoint <- gsub("Preheat", "Pre-heat", datTraits$Time)
 datTraits$Timepoint <- gsub("Postheat", "Post-heat", datTraits$Time)
