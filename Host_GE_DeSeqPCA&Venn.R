@@ -943,9 +943,8 @@ fig1
 
 
 #### plotting massive table of all information - module membership, genes, gene names, etc. ####
-###yingqi analysis WGCNA2022
-annot=read.table("~/Desktop/BU NSF Postdoc/Nicola_Ofav_chpt3/Realign to genomes/GoFiles/Host/Ofav_Made_iso2geneName_16Dec2024.tab",sep="\t",quote="")
-iso2go=read.table("~/Desktop/BU NSF Postdoc/Nicola_Ofav_chpt3/Realign to genomes/GoFiles/Host/Ofav_Made_iso2go_9Dec2024.tab",sep="\t",quote="")
+annot=read.table("~/path/Ofav_Made_iso2geneName_16Dec2024.tab",sep="\t",quote="")
+iso2go=read.table("~/path/Ofav_Made_iso2go_9Dec2024.tab",sep="\t",quote="")
 
 probes=colnames(datExprOutOfav)
 
@@ -1385,9 +1384,8 @@ fig1
 
 
 ###########plotting massive table of all information - module membership, genes, gene names, etc. ####
-###yingqi analysis WGCNA2022
-annot=read.table("~/Desktop/BU NSF Postdoc/Nicola_Ofav_chpt3/Realign to genomes/GoFiles/Host/Ofav_Made_iso2geneName_16Dec2024.tab",sep="\t",quote="")
-iso2go=read.table("~/Desktop/BU NSF Postdoc/Nicola_Ofav_chpt3/Realign to genomes/GoFiles/Host/Ofav_Made_iso2go_9Dec2024.tab",sep="\t",quote="")
+annot=read.table("~/path/Ofav_Made_iso2geneName_16Dec2024.tab",sep="\t",quote="")
+iso2go=read.table("~/path/Ofav_Made_iso2go_9Dec2024.tab",sep="\t",quote="")
 
 probes=colnames(datExprOutOfav)
 
