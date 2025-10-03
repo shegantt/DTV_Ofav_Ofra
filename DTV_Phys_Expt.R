@@ -12,8 +12,8 @@ library(bestNormalize)
 library(nlme)
 library(performance)
 
-setwd("~/")
-phys.all <- read.csv("Thermvar_metadata_Apr2025_ClonesFixed.csv")
+setwd("~/path")
+phys.all <- read.csv("THERMVAR_MAIN_METADATA_Apr25_clonesfixed.csv")
 
 str(phys.all)
 phys.all$Timepoint <- factor(phys.all$Timepoint,levels=c("Preheat","Postheat"))
@@ -693,9 +693,7 @@ Anova(lmer.pam, type = 3)
 # Residuals          12 0.011234 0.0009362  
 
 #Pairwise comparisons
-emmeans_results <- emmeans(lmer.pam, ~ Treatment * sampling)
-pairwise_results <- contrast(emmeans_results, method = "pairwise", adjust = "tukey")
-summary(pairwise_results)
+emmeans(lmer.pam, pairwise  ~ Treatment * sampling, adjust = "tukey")
 # contrast                              estimate      SE df t.ratio p.value
 # Control sampling1 - DTV sampling1      -0.0107 0.00475  9  -2.257  0.1797
 # Control sampling1 - Control sampling2   0.0303 0.00475  9   6.375  0.0006 ***
@@ -736,20 +734,8 @@ Anova(lmer.pam, type = 3)
 #   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 
 
-# aov.pam.fra <- aov(pam~Treatment*sampling,data=phys.less.geno.time.fra)
-# summary(aov.pam.fra) 
-#                    Df   Sum Sq  Mean Sq F value Pr(>F)  
-# Treatment           1 0.002040 0.002040   3.600 0.0760 .
-# sampling            1 0.003778 0.003778   6.668 0.0201 *
-# Treatment:sampling  1 0.000120 0.000120   0.211 0.6522  
-# Residuals          16 0.009067 0.000567                 
-# ---
-# Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
-
 #Pairwise comparisons
-emmeans_results <- emmeans(lmer.pam, ~ Treatment * sampling)
-pairwise_results <- contrast(emmeans_results, method = "pairwise", adjust = "tukey")
-summary(pairwise_results)
+emmeans(lmer.pam, pairwise ~ Treatment * sampling, adjust = "tukey")
 # contrast                              estimate     SE df t.ratio p.value
 # Control sampling1 - DTV sampling1     -0.02817 0.0102  9  -2.754  0.0868 
 # Control sampling1 - Control sampling2  0.02386 0.0102  9   2.333  0.1612
@@ -772,30 +758,31 @@ leveneTest(pam~Treatment,data=phys.less3.geno.time.fra) #ns
 shapiro.test(phys.less3.geno.time.fra$pam) #ns
 
 # Genotype is a random effect
-lme.red <- lme(
-  pam ~ Treatment * sampling,                # Fixed effects
-  random = ~1 | Genotype,                         # Random intercepts for repeated measures
-  #weights = varIdent(form = ~1 | Treatment),      # Allows unequal variances by Treatment group
-  data = phys.less3.geno.time.fav
-)
+lmer.pam <- lmer(pam ~ Treatment * sampling + (1 | Genotype), data = phys.less3.geno.time.fav)
+# lme.red <- lme(
+#   pam ~ Treatment * sampling,                # Fixed effects
+#   random = ~1 | Genotype,                         # Random intercepts for repeated measures
+#   #weights = varIdent(form = ~1 | Treatment),      # Allows unequal variances by Treatment group
+#   data = phys.less3.geno.time.fav
+# )
 
-check_model(lme.red) # check assumptions more thoroughly, pretty okay
+check_model(lmer.pam) # check assumptions more thoroughly, pretty okay
 
 
 # Summary of the model w/ ANOVA like summaries
-Anova(lme.red, type = "III") 
-# Analysis of Deviance Table (Type III tests)
+Anova(lmer.pam, type = "III") 
+# Analysis of Deviance Table (Type III Wald chisquare tests)
 # 
 # Response: pam
-#                         Chisq Df Pr(>Chisq)    
+# Chisq Df Pr(>Chisq)    
 # (Intercept)        1405.3428  1  < 2.2e-16 ***
 #   Treatment             3.0839  1    0.07907 .  
-# sampling             44.2042  4  5.819e-09 ***
-#   Treatment:sampling    3.7123  4    0.44634 
+#   sampling             44.2042  4  5.819e-09 ***
+#   Treatment:sampling    3.7123  4    0.44634  
   
 
 #Pairwise comparisons
-emmeans(lme.red, pairwise ~ Treatment * sampling, adjust = "tukey")
+emmeans(lmer.pam, pairwise ~ Treatment * sampling, adjust = "tukey")
 # $contrasts
 # contrast                               estimate      SE df t.ratio p.value
 # Control sampling1 - DTV sampling1     -1.44e-02 0.00819 27  -1.756  0.7550
@@ -851,76 +838,77 @@ leveneTest(pam~Treatment,data=phys.less3.geno.time.fra) #ns
 shapiro.test(phys.less3.geno.time.fra$pam) #ns
 
 # Genotype is a random effect
-lme.red <- lme(
-  pam ~ Treatment * sampling,                # Fixed effects
-  random = ~1 | Genotype,                         # Random intercepts for repeated measures
-  #weights = varIdent(form = ~1 | Treatment),      # Allows unequal variances by Treatment group
-  data = phys.less3.geno.time.fav
-)
+lmer.pam <- lmer(pam ~ Treatment * sampling + (1 | Genotype), data = phys.less3.geno.time.fra)
+# lme.red <- lme(
+#   pam ~ Treatment * sampling,                # Fixed effects
+#   random = ~1 | Genotype,                         # Random intercepts for repeated measures
+#   #weights = varIdent(form = ~1 | Treatment),      # Allows unequal variances by Treatment group
+#   data = phys.less3.geno.time.fra
+# )
 
-check_model(lme.red) # check assumptions more thoroughly, looks pretty good
+check_model(lmer.pam) # check assumptions more thoroughly, looks pretty good
 
 
 # Summary of the model w/ ANOVA like summaries
-Anova(lme.red, type = "III") 
+Anova(lmer.pam, type = "III") 
 # Analysis of Deviance Table (Type III tests)
 # 
 # Response: pam
 # Chisq Df Pr(>Chisq)    
-# (Intercept)        1405.3428  1  < 2.2e-16 ***
-#   Treatment             3.0839  1    0.07907 .  
-# sampling             44.2042  4  5.819e-09 ***
-#   Treatment:sampling    3.7123  4    0.44634   
+# (Intercept)        2013.3019  1  < 2.2e-16 ***
+#   Treatment            12.1091  1  0.0005018 ***
+#   sampling             21.7071  4  0.0002292 ***
+#   Treatment:sampling    2.8515  4  0.5829772 
 
 #Pairwise comparisons
-emmeans(lme.red, pairwise ~ Treatment * sampling, adjust = "tukey")
+emmeans(lmer.pam, pairwise ~ Treatment * sampling, adjust = "tukey")
 # $contrasts
-# contrast                               estimate      SE df t.ratio p.value
-# Control sampling1 - DTV sampling1     -1.44e-02 0.00819 27  -1.756  0.7550
-# Control sampling1 - Control sampling2 -1.43e-02 0.00819 27  -1.749  0.7589
-# Control sampling1 - DTV sampling2     -4.58e-02 0.00819 27  -5.592  0.0002 ***
-# Control sampling1 - Control sampling3 -8.28e-03 0.00819 27  -1.010  0.9890
-# Control sampling1 - DTV sampling3     -2.58e-02 0.00819 27  -3.151  0.0933
-# Control sampling1 - Control sampling4  5.04e-03 0.00819 27   0.615  0.9997
-# Control sampling1 - DTV sampling4     -5.68e-03 0.00819 27  -0.693  0.9993
-# Control sampling1 - Control sampling5  3.53e-02 0.00819 27   4.311  0.0062 **
-# Control sampling1 - DTV sampling5      1.85e-02 0.00819 27   2.254  0.4472
-# DTV sampling1 - Control sampling2      5.56e-05 0.00819 27   0.007  1.0000
-# DTV sampling1 - DTV sampling2         -3.14e-02 0.00819 27  -3.836  0.0200 *
-# DTV sampling1 - Control sampling3      6.11e-03 0.00819 27   0.746  0.9988
-# DTV sampling1 - DTV sampling3         -1.14e-02 0.00819 27  -1.395  0.9184
-# DTV sampling1 - Control sampling4      1.94e-02 0.00819 27   2.371  0.3797
-# DTV sampling1 - DTV sampling4          8.71e-03 0.00819 27   1.063  0.9845
-# DTV sampling1 - Control sampling5      4.97e-02 0.00819 27   6.067  0.0001 ***
-# DTV sampling1 - DTV sampling5          3.29e-02 0.00819 27   4.011  0.0131 *
-# Control sampling2 - DTV sampling2     -3.15e-02 0.00819 27  -3.843  0.0197 *
-# Control sampling2 - Control sampling3  6.06e-03 0.00819 27   0.739  0.9989
-# Control sampling2 - DTV sampling3     -1.15e-02 0.00819 27  -1.402  0.9162
-# Control sampling2 - Control sampling4  1.94e-02 0.00819 27   2.365  0.3835
-# Control sampling2 - DTV sampling4      8.65e-03 0.00819 27   1.056  0.9851
-# Control sampling2 - Control sampling5  4.97e-02 0.00819 27   6.060  0.0001 ***
-# Control sampling2 - DTV sampling5      3.28e-02 0.00819 27   4.004  0.0133 *
-# DTV sampling2 - Control sampling3      3.75e-02 0.00819 27   4.582  0.0031 **
-# DTV sampling2 - DTV sampling3          2.00e-02 0.00819 27   2.441  0.3422
-# DTV sampling2 - Control sampling4      5.09e-02 0.00819 27   6.207  <.0001 ***
-# DTV sampling2 - DTV sampling4          4.01e-02 0.00819 27   4.899  0.0014
-# DTV sampling2 - Control sampling5      8.11e-02 0.00819 27   9.903  <.0001 ***
-# DTV sampling2 - DTV sampling5          6.43e-02 0.00819 27   7.847  <.0001 ***
-# Control sampling3 - DTV sampling3     -1.75e-02 0.00819 27  -2.141  0.5169
-# Control sampling3 - Control sampling4  1.33e-02 0.00819 27   1.626  0.8245
-# Control sampling3 - DTV sampling4      2.60e-03 0.00819 27   0.317  1.0000
-# Control sampling3 - Control sampling5  4.36e-02 0.00819 27   5.321  0.0005 ***
-# Control sampling3 - DTV sampling5      2.67e-02 0.00819 27   3.265  0.0734
-# DTV sampling3 - Control sampling4      3.09e-02 0.00819 27   3.766  0.0236
-# DTV sampling3 - DTV sampling4          2.01e-02 0.00819 27   2.458  0.3334
-# DTV sampling3 - Control sampling5      6.11e-02 0.00819 27   7.462  <.0001 ***
-# DTV sampling3 - DTV sampling5          4.43e-02 0.00819 27   5.406  0.0004 ***
-# Control sampling4 - DTV sampling4     -1.07e-02 0.00819 27  -1.309  0.9430
-# Control sampling4 - Control sampling5  3.03e-02 0.00819 27   3.695  0.0279 *
-# Control sampling4 - DTV sampling5      1.34e-02 0.00819 27   1.639  0.8177
-# DTV sampling4 - Control sampling5      4.10e-02 0.00819 27   5.004  0.0011 **
-# DTV sampling4 - DTV sampling5          2.42e-02 0.00819 27   2.948  0.1407
-# Control sampling5 - DTV sampling5     -1.68e-02 0.00819 27  -2.056  0.5705
+# contrast                              estimate     SE df t.ratio p.value
+# Control sampling1 - DTV sampling1     -0.03994 0.0115 27  -3.480  0.0457 *
+# Control sampling1 - Control sampling2 -0.03594 0.0115 27  -3.131  0.0972
+# Control sampling1 - DTV sampling2     -0.07704 0.0115 27  -6.712  <.0001 ***
+# Control sampling1 - Control sampling3 -0.02893 0.0115 27  -2.520  0.3021
+# Control sampling1 - DTV sampling3     -0.06142 0.0115 27  -5.350  0.0004 ***
+# Control sampling1 - Control sampling4 -0.01486 0.0115 27  -1.295  0.9464
+# Control sampling1 - DTV sampling4     -0.04303 0.0115 27  -3.748  0.0246 *
+# Control sampling1 - Control sampling5  0.00900 0.0115 27   0.784  0.9983
+# Control sampling1 - DTV sampling5     -0.00833 0.0115 27  -0.726  0.9990
+# DTV sampling1 - Control sampling2      0.00400 0.0115 27   0.348  1.0000
+# DTV sampling1 - DTV sampling2         -0.03710 0.0115 27  -3.232  0.0787
+# DTV sampling1 - Control sampling3      0.01101 0.0115 27   0.959  0.9923
+# DTV sampling1 - DTV sampling3         -0.02147 0.0115 27  -1.871  0.6872
+# DTV sampling1 - Control sampling4      0.02508 0.0115 27   2.185  0.4894
+# DTV sampling1 - DTV sampling4         -0.00308 0.0115 27  -0.269  1.0000
+# DTV sampling1 - Control sampling5      0.04894 0.0115 27   4.264  0.0070 **
+# DTV sampling1 - DTV sampling5          0.03161 0.0115 27   2.754  0.2027
+# Control sampling2 - DTV sampling2     -0.04110 0.0115 27  -3.580  0.0364 *
+# Control sampling2 - Control sampling3  0.00701 0.0115 27   0.611  0.9998
+# Control sampling2 - DTV sampling3     -0.02547 0.0115 27  -2.219  0.4686
+# Control sampling2 - Control sampling4  0.02108 0.0115 27   1.837  0.7078
+# Control sampling2 - DTV sampling4     -0.00708 0.0115 27  -0.617  0.9997
+# Control sampling2 - Control sampling5  0.04494 0.0115 27   3.915  0.0165 *
+# Control sampling2 - DTV sampling5      0.02761 0.0115 27   2.405  0.3611
+# DTV sampling2 - Control sampling3      0.04811 0.0115 27   4.191  0.0084 **
+# DTV sampling2 - DTV sampling3          0.01562 0.0115 27   1.361  0.9287
+# DTV sampling2 - Control sampling4      0.06218 0.0115 27   5.417  0.0004 ***
+# DTV sampling2 - DTV sampling4          0.03401 0.0115 27   2.963  0.1365
+# DTV sampling2 - Control sampling5      0.08604 0.0115 27   7.496  <.0001 ***
+# DTV sampling2 - DTV sampling5          0.06871 0.0115 27   5.986  0.0001 ***
+# Control sampling3 - DTV sampling3     -0.03249 0.0115 27  -2.830  0.1762
+# Control sampling3 - Control sampling4  0.01407 0.0115 27   1.226  0.9613
+# Control sampling3 - DTV sampling4     -0.01410 0.0115 27  -1.228  0.9609
+# Control sampling3 - Control sampling5  0.03793 0.0115 27   3.304  0.0674
+# Control sampling3 - DTV sampling5      0.02060 0.0115 27   1.794  0.7329
+# DTV sampling3 - Control sampling4      0.04656 0.0115 27   4.056  0.0117 *
+# DTV sampling3 - DTV sampling4          0.01839 0.0115 27   1.602  0.8359
+# DTV sampling3 - Control sampling5      0.07042 0.0115 27   6.134  0.0001 ***
+# DTV sampling3 - DTV sampling5          0.05308 0.0115 27   4.624  0.0028 **
+# Control sampling4 - DTV sampling4     -0.02817 0.0115 27  -2.454  0.3355
+# Control sampling4 - Control sampling5  0.02386 0.0115 27   2.079  0.5561
+# Control sampling4 - DTV sampling5      0.00653 0.0115 27   0.569  0.9999
+# DTV sampling4 - Control sampling5      0.05203 0.0115 27   4.532  0.0036 **
+# DTV sampling4 - DTV sampling5          0.03469 0.0115 27   3.022  0.1214
+# Control sampling5 - DTV sampling5     -0.01733 0.0115 27  -1.510  0.8766
 
 
 ### Buoyant weight ####
@@ -1126,7 +1114,7 @@ Anova(lmer.weightChan, type = 3)
 
 
 #Pairwise comparisons
-emmeans(lme.weightChan, pairwise ~ Treatment * sampling, adjust = "tukey")
+emmeans(lmer.weightChan, pairwise ~ Treatment * sampling, adjust = "tukey")
 #all n.s.
 
 
@@ -1257,3 +1245,497 @@ emmeans(lmer.weightChan, pairwise ~ Treatment * sampling, adjust = "tukey")
 # DTV sampling3 - Control sampling4      0.36487 0.293 21   1.245  0.9086
 # DTV sampling3 - DTV sampling4          0.40034 0.293 21   1.366  0.8622
 # Control sampling4 - DTV sampling4      0.03547 0.293 21   0.121  1.0000
+
+##### Figs 2c and S6 Respirometry preheat to postheat ###
+#### Gross Photosynthesis ####
+#TreatTime
+phys.less <- phys.all
+
+## Group by genotype, species, treatment, and timepoint and average PAM values
+phys.less.geno <- phys.less %>%
+  group_by(Genotype, Species, Treatment, Timepoint) %>%
+  summarize_at(c('gross_photo_t3', 'gross_photo_t4'), mean, na.rm = TRUE)
+phys.less.geno.df <- data.frame(phys.less.geno)
+
+## Reshape to long format
+phys.less.geno.time <- reshape(phys.less.geno.df,
+                               varying = c('gross_photo_t3', 'gross_photo_t4'),
+                               v.names = 'Pgross',
+                               timevar = 'sampling',
+                               direction = "long")
+phys.less.geno.time <- phys.less.geno.time %>%
+  filter(!is.na(Pgross) & !is.nan(Pgross))
+phys.less.geno.time$sampling <- as.factor(phys.less.geno.time$sampling)
+
+## Create combined factor for Treatment and Timepoint
+phys.less.geno.time$TreatTime <- paste(phys.less.geno.time$Treatment,
+                                       ifelse(phys.less.geno.time$sampling == 1, "Pre-heat", "Post-heat"),
+                                       sep = "_")
+#convert to factors
+phys.less.geno.time$TreatTime <- as.factor(phys.less.geno.time$TreatTime)
+phys.less.geno.time$Species <- as.factor(phys.less.geno.time$Species)
+
+## Summarize data with standard error
+phys.less.geno.time.se <- summarySE(data = phys.less.geno.time,
+                                    measurevar = "Pgross",
+                                    groupvars = c("TreatTime", "Treatment", "Species", "sampling"))
+#convert to factor
+phys.less.geno.time.se$Species <- factor(phys.less.geno.time.se$Species)
+
+#reorder variables for figures
+f=c('Control_Pre-heat','Control_Post-heat', 'DTV_Pre-heat', 'DTV_Post-heat')
+phys.less.geno.time <- within(phys.less.geno.time, TreatTime<- factor(TreatTime, levels=f))
+
+
+## Plot
+gg.pgross <- ggplot(phys.less.geno.time, aes(x = sampling, y = Pgross, shape = Treatment, fill = TreatTime)) +
+  #scale_y_continuous(expand = c(0,0), limits = c(0.45,0.65)) + #this is set for our data, may need to adjust if using with different data
+  geom_jitter(position = position_jitterdodge(jitter.width = 0.1), alpha = 0.3, size = 4) +
+  geom_errorbar(stat = 'summary',
+                position = position_dodge(width = 0.5), width = 0.2) +
+  geom_point(data = phys.less.geno.time.se,
+             aes(x = sampling, y = Pgross),
+             position = position_dodge(width = 0.5), size = 5) +
+  facet_grid2(~Species,
+              strip = strip_themed(background_x = elem_list_rect(fill = c("#8B7355","#CDAB7D")),
+                                   text_x = elem_list_text(size = 14, face = "bold", color = "white")))+
+  scale_fill_manual(name = "Treatment x Time", 
+                    values = c("Control_Pre-heat" = "#2C2673",
+                               "Control_Post-heat" = "#9187FF",
+                               "DTV_Pre-heat" = "#E24A13",
+                               "DTV_Post-heat" = "#FFA45E")) +
+  scale_shape_manual(name = "Treatment",
+                     values = c("Control" = 22,
+                                "DTV" = 23)) +
+  theme_bw() +
+  theme(legend.title=element_text(size=14, face = "bold", color = "black"), 
+        legend.text=element_text(size=14, face = "bold", color="black"),
+        axis.text = element_text(color = "black", size = 14, face = "bold"),
+        axis.title.y = element_text(size = 16, color = "black", face = "bold"),
+        axis.ticks = element_line(color = "black"))+
+  xlab("") +
+  ylab("Gross Photosynthesis") +
+  ggtitle("") +
+  scale_x_discrete(labels = c("Preheat", "Postheat")) #+
+#theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+gg.pgross
+
+
+#### Gross Photosynthesis stats  ####
+#preheat to postheat
+##both species
+leveneTest(Pgross~Treatment,data=phys.less.geno.time) #ns
+shapiro.test(phys.less.geno.time$Pgross) #ns
+
+# Genotype is a random effect
+lmer.pgross <- lmer(Pgross ~ Treatment * Species * sampling + (1 | Genotype), data = phys.less.geno.time)
+
+# Summary of the model
+summary(lmer.pgross)
+
+# Type III ANOVA table (if needed)
+Anova(lmer.pgross, type = 3)
+#ns
+
+##favs only
+phys.less.geno.time.fav <- subset(phys.less.geno.time,Species=="O. faveolata")
+
+#Check assumptions for LME
+# Homogeneity of variances
+leveneTest(Pgross~Treatment,data=phys.less.geno.time.fav) #ns
+# Normality of residuals
+shapiro.test(phys.less.geno.time.fav$Pgross) #ns
+
+# control for Genotype is a random effect
+lmer.pgross <- lmer(Pgross ~ Treatment * sampling + (1 | Genotype), data = phys.less.geno.time.fav)
+
+check_model(lmer.pgross) # check assumptions more thoroughly, looks decent!
+
+# Summary of the model
+summary(lmer.pgross)
+
+# Type III ANOVA table (if needed)
+Anova(lmer.pgross, type = 3)
+#ns
+
+#Pairwise comparisons
+emmeans(lmer.pgross, pairwise  ~ Treatment * sampling, adjust = "tukey")
+#ns
+
+##franks
+phys.less.geno.time.fra <- subset(phys.less.geno.time,Species=="O. franksi")
+
+leveneTest(Pgross~Treatment,data=phys.less.geno.time.fra) #ns
+shapiro.test(phys.less.geno.time.fra$Pgross) #ns
+
+# Genotype is a random effect
+lmer.pgross <- lmer(Pgross ~ Treatment * sampling + (1 | Genotype), data = phys.less.geno.time.fra)
+
+check_model(lmer.pgross) # check assumptions more thoroughly, looks decent!
+
+# Summary of the model
+summary(lmer.pgross)
+
+# Type III ANOVA table (if needed)
+Anova(lmer.pgross, type = 3)
+#ns, timepoint almost id
+
+
+#Pairwise comparisons
+# emmeans(lmer.pgross, pairwise ~ Treatment * sampling, adjust = "tukey")
+# contrast                              estimate    SE df t.ratio p.value
+# Control sampling1 - DTV sampling1        0.529 0.889  9   0.595  0.9311
+# Control sampling1 - Control sampling2    1.630 0.889  9   1.832  0.3199
+# Control sampling1 - DTV sampling2        3.101 0.889  9   3.487  0.0289 ***
+# DTV sampling1 - Control sampling2        1.100 0.889  9   1.237  0.6208
+# DTV sampling1 - DTV sampling2            2.572 0.889  9   2.892  0.0706 ~
+# Control sampling2 - DTV sampling2        1.472 0.889  9   1.655  0.3983
+
+
+### dark respiration ####
+#TreatTime
+phys.less <- phys.all
+
+## Group by genotype, species, treatment, and timepoint and average PAM values
+phys.less.geno <- phys.less %>%
+  group_by(Genotype, Species, Treatment, Timepoint) %>%
+  summarize_at(c('resp_t3', 'resp_t4'), mean, na.rm = TRUE)
+phys.less.geno.df <- data.frame(phys.less.geno)
+
+## Reshape to long format
+phys.less.geno.time <- reshape(phys.less.geno.df,
+                               varying = c('resp_t3', 'resp_t4'),
+                               v.names = 'Resp',
+                               timevar = 'sampling',
+                               direction = "long")
+phys.less.geno.time <- phys.less.geno.time %>%
+  filter(!is.na(Resp) & !is.nan(Resp))
+phys.less.geno.time$sampling <- as.factor(phys.less.geno.time$sampling)
+
+## Create combined factor for Treatment and Timepoint
+phys.less.geno.time$TreatTime <- paste(phys.less.geno.time$Treatment,
+                                       ifelse(phys.less.geno.time$sampling == 1, "Pre-heat", "Post-heat"),
+                                       sep = "_")
+#convert to factors
+phys.less.geno.time$TreatTime <- as.factor(phys.less.geno.time$TreatTime)
+phys.less.geno.time$Species <- as.factor(phys.less.geno.time$Species)
+
+## Summarize data with standard error
+phys.less.geno.time.se <- summarySE(data = phys.less.geno.time,
+                                    measurevar = "Resp",
+                                    groupvars = c("TreatTime", "Treatment", "Species", "sampling"))
+#convert to factor
+phys.less.geno.time.se$Species <- factor(phys.less.geno.time.se$Species)
+
+#reorder variables for figures
+f=c('Control_Pre-heat','Control_Post-heat', 'DTV_Pre-heat', 'DTV_Post-heat')
+phys.less.geno.time <- within(phys.less.geno.time, TreatTime<- factor(TreatTime, levels=f))
+
+
+## Plot
+gg.resp <- ggplot(phys.less.geno.time, aes(x = sampling, y = Resp, shape = Treatment, fill = TreatTime)) +
+  #scale_y_continuous(expand = c(0,0), limits = c(0.45,0.65)) + #this is set for our data, may need to adjust if using with different data
+  geom_jitter(position = position_jitterdodge(jitter.width = 0.1), alpha = 0.3, size = 4) +
+  geom_errorbar(stat = 'summary',
+                position = position_dodge(width = 0.5), width = 0.2) +
+  geom_point(data = phys.less.geno.time.se,
+             aes(x = sampling, y = Resp),
+             position = position_dodge(width = 0.5), size = 5) +
+  facet_grid2(~Species,
+              strip = strip_themed(background_x = elem_list_rect(fill = c("#8B7355","#CDAB7D")),
+                                   text_x = elem_list_text(size = 14, face = "bold", color = "white")))+
+  scale_fill_manual(name = "Treatment x Time", 
+                    values = c("Control_Pre-heat" = "#2C2673",
+                               "Control_Post-heat" = "#9187FF",
+                               "DTV_Pre-heat" = "#E24A13",
+                               "DTV_Post-heat" = "#FFA45E")) +
+  scale_shape_manual(name = "Treatment",
+                     values = c("Control" = 22,
+                                "DTV" = 23)) +
+  theme_bw() +
+  theme(legend.title=element_text(size=14, face = "bold", color = "black"), 
+        legend.text=element_text(size=14, face = "bold", color="black"),
+        axis.text = element_text(color = "black", size = 14, face = "bold"),
+        axis.title.y = element_text(size = 16, color = "black", face = "bold"),
+        axis.ticks = element_line(color = "black"))+
+  xlab("") +
+  ylab("Dark Respiration (nmol/min⁻¹mm⁻²)") +
+  ggtitle("") +
+  scale_x_discrete(labels = c("Preheat", "Postheat")) #+
+#theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+gg.resp
+
+
+#### Dark Respiration stats  ####
+#preheat to postheat
+##both species
+leveneTest(Resp~Treatment,data=phys.less.geno.time) #ns
+shapiro.test(phys.less.geno.time$Resp) #sig
+histogram(phys.less.geno.time$Resp) #looks a lil right skewed but not bad, lmer is robust to this
+
+# Genotype is a random effect
+lmer.Resp <- lmer(Resp ~ Treatment * Species * sampling + (1 | Genotype), data = phys.less.geno.time)
+
+# Summary of the model
+summary(lmer.Resp)
+
+# Type III ANOVA table (if needed)
+Anova(lmer.Resp, type = 3)
+# Analysis of Deviance Table (Type III Wald chisquare tests)
+# 
+# Response: Resp
+# Chisq Df Pr(>Chisq)    
+# (Intercept)                37.4439  1  9.408e-10 ***
+#   Treatment                   0.5101  1    0.47508    
+# Species                     0.7189  1    0.39649    
+# sampling                    5.6806  1    0.01715 *  
+#   Treatment:Species           0.1480  1    0.70050    
+# Treatment:sampling          0.8144  1    0.36681    
+# Species:sampling            2.2659  1    0.13225    
+# Treatment:Species:sampling  0.1780  1    0.67306    
+
+##favs only
+phys.less.geno.time.fav <- subset(phys.less.geno.time,Species=="O. faveolata")
+
+#Check assumptions for LME
+# Homogeneity of variances
+leveneTest(Resp~Treatment,data=phys.less.geno.time.fav) #ns
+# Normality of residuals
+shapiro.test(phys.less.geno.time.fav$Resp) #sig
+histogram(phys.less.geno.time.fav$Resp) #looks right skewed, try transforming
+
+transResp <- log(phys.less.geno.time.fav$Resp + abs(min(phys.less.geno.time.fav$Resp, na.rm=TRUE)) + 1)
+shapiro.test(transResp) #still sig, lmer is robust to this
+histogram(transResp) #looks better, use this for anakysis
+
+# control for Genotype is a random effect
+lmer.Resp <- lmer(transResp ~ Treatment * sampling + (1 | Genotype), data = phys.less.geno.time.fav)
+
+check_model(lmer.Resp) # check assumptions more thoroughly, looks decent!
+
+# Summary of the model
+summary(lmer.Resp)
+
+# Type III ANOVA table (if needed)
+Anova(lmer.Resp, type = 3)
+#Response: transResp
+# Chisq Df Pr(>Chisq)    
+# (Intercept)        902.5176  1    < 2e-16 ***
+# Treatment            0.8404  1    0.35927    
+# sampling             6.3540  1    0.01171 *  
+# Treatment:sampling   0.6317  1    0.42673  
+
+#Pairwise comparisons
+emmeans(lmer.Resp, pairwise  ~ Treatment * sampling, adjust = "tukey")
+# $contrasts
+# contrast                              estimate    SE df t.ratio p.value
+# Control sampling1 - DTV sampling1       0.0706 0.077  9   0.917  0.7968
+# Control sampling1 - Control sampling2  -0.1940 0.077  9  -2.521  0.1228
+# Control sampling1 - DTV sampling2      -0.0369 0.077  9  -0.480  0.9617
+# DTV sampling1 - Control sampling2      -0.2646 0.077  9  -3.437  0.0311 **
+# DTV sampling1 - DTV sampling2          -0.1075 0.077  9  -1.397  0.5314
+# Control sampling2 - DTV sampling2       0.1571 0.077  9   2.041  0.2429
+
+##franks
+phys.less.geno.time.fra <- subset(phys.less.geno.time,Species=="O. franksi")
+
+leveneTest(Resp~Treatment,data=phys.less.geno.time.fra) #ns
+shapiro.test(phys.less.geno.time.fra$Resp) #ns
+
+# Genotype is a random effect
+lmer.Resp <- lmer(Resp ~ Treatment * sampling + (1 | Genotype), data = phys.less.geno.time.fra)
+
+check_model(lmer.Resp) # check assumptions more thoroughly, looks good!
+
+# Summary of the model
+summary(lmer.Resp)
+
+# Type III ANOVA table (if needed)
+Anova(lmer.Resp, type = 3)
+#ns
+
+#Pairwise comparisons
+emmeans(lmer.Resp, pairwise  ~ Treatment * sampling, adjust = "tukey")
+#ns
+
+
+
+#### P:R ####
+#TreatTime
+phys.less <- phys.all
+
+
+## Group by genotype, species, treatment, and timepoint and average PAM values
+# phys.less.geno <- phys.less %>%
+#   group_by(Genotype, Species, Treatment, Timepoint) %>%
+#   summarize_at(c('PR_t3', 'PR_t4'), mean, na.rm = TRUE)
+phys.less.geno <- phys.less %>%
+  group_by(Genotype, Species, Treatment, Timepoint) %>%
+  dplyr::summarize(across(c(PR_t3, PR_t4), ~ mean(.x, na.rm = TRUE)), .groups = "drop")
+
+
+
+phys.less.geno.df <- data.frame(phys.less.geno)
+
+
+## Reshape to long format
+phys.less.geno.time <- reshape(phys.less.geno.df,
+                               varying = c('PR_t3', 'PR_t4'),
+                               v.names = 'PR',
+                               timevar = 'sampling',
+                               direction = "long")
+
+phys.less.geno.time <- phys.less.geno.time %>%
+  filter(!is.na(PR) & !is.nan(PR))
+phys.less.geno.time$sampling <- as.factor(phys.less.geno.time$sampling)
+
+## Create combined factor for Treatment and Timepoint
+phys.less.geno.time$TreatTime <- paste(phys.less.geno.time$Treatment,
+                                       ifelse(phys.less.geno.time$sampling == 1, "Pre-heat", "Post-heat"),
+                                       sep = "_")
+#convert to factors
+phys.less.geno.time$TreatTime <- as.factor(phys.less.geno.time$TreatTime)
+phys.less.geno.time$Species <- as.factor(phys.less.geno.time$Species)
+phys.less.geno.time$PR[is.nan(phys.less.geno.time$PR)] <- NA
+phys.less.geno.time$PR <- as.numeric(phys.less.geno.time$PR)
+
+## Summarize data with standard error
+phys.less.geno.time.se <- summarySE(data = phys.less.geno.time,
+                                    measurevar = "PR",
+                                    groupvars = c("TreatTime", "Treatment", "Species", "sampling"))
+#convert to factor
+phys.less.geno.time.se$Species <- factor(phys.less.geno.time.se$Species)
+
+#reorder variables for figures
+f=c('Control_Pre-heat','Control_Post-heat', 'DTV_Pre-heat', 'DTV_Post-heat')
+phys.less.geno.time <- within(phys.less.geno.time, TreatTime<- factor(TreatTime, levels=f))
+
+
+## Plot
+gg.resp <- ggplot(phys.less.geno.time, aes(x = sampling, y = PR, shape = Treatment, fill = TreatTime)) +
+  #scale_y_continuous(expand = c(0,0), limits = c(0.45,0.65)) + #this is set for our data, may need to adjust if using with different data
+  geom_jitter(position = position_jitterdodge(jitter.width = 0.1), alpha = 0.3, size = 4) +
+  geom_errorbar(stat = 'summary',
+                position = position_dodge(width = 0.5), width = 0.2) +
+  geom_point(data = phys.less.geno.time.se,
+             aes(x = sampling, y = PR),
+             position = position_dodge(width = 0.5), size = 5) +
+  facet_grid2(~Species,
+              strip = strip_themed(background_x = elem_list_rect(fill = c("#8B7355","#CDAB7D")),
+                                   text_x = elem_list_text(size = 14, face = "bold", color = "white")))+
+  scale_fill_manual(name = "Treatment x Time", 
+                    values = c("Control_Pre-heat" = "#2C2673",
+                               "Control_Post-heat" = "#9187FF",
+                               "DTV_Pre-heat" = "#E24A13",
+                               "DTV_Post-heat" = "#FFA45E")) +
+  scale_shape_manual(name = "Treatment",
+                     values = c("Control" = 22,
+                                "DTV" = 23)) +
+  theme_bw() +
+  theme(legend.title=element_text(size=14, face = "bold", color = "black"), 
+        legend.text=element_text(size=14, face = "bold", color="black"),
+        axis.text = element_text(color = "black", size = 14, face = "bold"),
+        axis.title.y = element_text(size = 16, color = "black", face = "bold"),
+        axis.ticks = element_line(color = "black"))+
+  xlab("") +
+  ylab("P/R") +
+  ggtitle("") +
+  scale_x_discrete(labels = c("Preheat", "Postheat")) #+
+#theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+gg.resp
+
+
+#### P/R stats  ####
+#preheat to postheat
+##both species
+leveneTest(PR~Treatment,data=phys.less.geno.time) #ns
+shapiro.test(phys.less.geno.time$PR) #sig, but close, maybe dependon robustness of lmer
+histogram(phys.less.geno.time$PR) #looks left skewed, going to try transforming
+
+transPR <- log(phys.less.geno.time$PR + abs(min(phys.less.geno.time$PR, na.rm=TRUE)) + 1)
+shapiro.test(transPR) #worse than before - try different transformation
+histogram(transPR) #still left skewed, but worse
+
+transPR <- (phys.less.geno.time$PR)^2
+shapiro.test(transPR) #still sig but barely
+histogram(transPR) #looks better, going to use this for analysis
+
+
+# Genotype is a random effect
+lmer.PR <- lmer(transPR ~ Treatment * Species * sampling + (1 | Genotype), data = phys.less.geno.time)
+
+# Summary of the model
+summary(lmer.PR)
+
+# Type III ANOVA table (if needed)
+Anova(lmer.PR, type = 3)
+#ns
+
+##favs only
+phys.less.geno.time.fav <- subset(phys.less.geno.time,Species=="O. faveolata")
+
+#Check assumptions for LME
+# Homogeneity of variances
+leveneTest(PR~Treatment,data=phys.less.geno.time.fav) #ns
+# Normality of residuals
+shapiro.test(phys.less.geno.time.fav$PR) #ns
+
+# control for Genotype is a random effect
+lmer.PR <- lmer(PR ~ Treatment * sampling + (1 | Genotype), data = phys.less.geno.time.fav)
+
+check_model(lmer.PR) # check assumptions more thoroughly, looks decent!
+
+# Summary of the model
+summary(lmer.PR)
+
+# Type III ANOVA table (if needed)
+Anova(lmer.PR, type = 3)
+#Response: PR
+# Chisq Df Pr(>Chisq)    
+# (Intercept)        185.0564  1  < 2.2e-16 ***
+# Treatment            0.0064  1     0.9363    
+# sampling            31.1933  1  2.336e-08 ***
+# Treatment:sampling   0.8392  1     0.3596 
+
+
+#Pairwise comparisons
+emmeans(lmer.PR, pairwise  ~ Treatment * sampling, adjust = "tukey")
+# $contrasts
+# contrast                              estimate    SE df t.ratio p.value
+# Control sampling1 - DTV sampling1       0.0159 0.199  9   0.080  0.9998
+# Control sampling1 - Control sampling2   1.1110 0.199  9   5.585  0.0016 **
+# Control sampling1 - DTV sampling2       0.8692 0.199  9   4.369  0.0080 **
+# DTV sampling1 - Control sampling2       1.0951 0.199  9   5.505  0.0017 **
+# DTV sampling1 - DTV sampling2           0.8533 0.199  9   4.290  0.0090 **
+# Control sampling2 - DTV sampling2      -0.2418 0.199  9  -1.216  0.6330
+
+##franks
+phys.less.geno.time.fra <- subset(phys.less.geno.time,Species=="O. franksi")
+
+leveneTest(PR~Treatment,data=phys.less.geno.time.fra) #ns
+shapiro.test(phys.less.geno.time.fra$PR) #sig
+histogram(phys.less.geno.time.fra$PR) #looks left skewed, try transforming
+
+transPR <- (phys.less.geno.time.fra$PR)^2
+shapiro.test(transPR) #ns
+histogram(transPR) #looks better, use this for analysis
+
+# Genotype is a random effect
+lmer.PR <- lmer(transPR ~ Treatment * sampling + (1 | Genotype), data = phys.less.geno.time.fra)
+
+check_model(lmer.PR) # check assumptions more thoroughly, much better!
+
+# Summary of the model
+summary(lmer.PR)
+
+# Type III ANOVA table (if needed)
+Anova(lmer.PR, type = 3)
+#ns, but timepoint almost is
+
+#Pairwise comparisons
+emmeans(lmer.PR, pairwise  ~ Treatment * sampling, adjust = "tukey")
+#ns
+
