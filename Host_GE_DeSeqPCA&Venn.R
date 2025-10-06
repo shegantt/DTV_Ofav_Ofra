@@ -1,7 +1,7 @@
 #####Ofav DTV RNAseq analysis based on Colleen Boves code (https://github.com/seabove7/BelizeRT_Castillo_Bove/blob/main/RT_Host_Sym_GE.R)
 
 ###host data
-setwd("~/Desktop/BU NSF Postdoc/Nicola_Ofav_chpt3/RNA analysis (Genome Counts)/Host_GE")
+setwd("~/path/Host_GE")
 
 library("DESeq2")
 library("ggplot2")
@@ -21,7 +21,7 @@ library("ggvenn")
 
 ##### First going to get the count of genes in all host samples ####
 #read in counts
-countData <- read.table("~/Desktop/BU NSF Postdoc/Nicola_Ofav_chpt3/Realign to genomes/FinalCounts_13Nov2024/Ofav_counts_fixedSNP.txt")
+countData <- read.table("~/path/Ofav_counts_fixedSNP.txt")
 head(countData)
 length(countData[,1]) #55804 genes
 
@@ -69,7 +69,7 @@ NumSampleGenes <- data.frame(Column = names(countData), NonZeroCount = SampleGen
 
 ##### Now do real analysis with clones removed ####
 #read in counts
-countData <- read.table("~/Desktop/BU NSF Postdoc/Nicola_Ofav_chpt3/Realign to genomes/FinalCounts_13Nov2024/Ofav_countsfixed_fixedSNP_noClones.txt")
+countData <- read.table("~/path/Ofav_countsfixed_fixedSNP_noClones.txt")
 head(countData)
 length(countData[,1]) #35826 genes
 
@@ -98,7 +98,7 @@ mean(totalCounts) #noClones- 1,031,921
 #order of samples in metadata, otherwise the metadata will get jumbled
 
 #import metadata
-rt <- read.csv("~/Desktop/BU NSF Postdoc/Nicola_Ofav_chpt3/THERMVAR_MAIN_METADATA_Apr25_clonesfixed.csv")
+rt <- read.csv("~/path/THERMVAR_MAIN_METADATA_Apr25_clonesfixed.csv")
 
 rt$Timepoint <- gsub("Preheat", "Pre-heat", rt$Time)
 rt$Timepoint <- gsub("Postheat", "Post-heat", rt$Time)
