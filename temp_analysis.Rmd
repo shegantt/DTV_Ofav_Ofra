@@ -1,0 +1,378 @@
+---
+title: "Temperature data"
+author: "Nicola G. Kriefall"
+date: "6/30/2021"
+output:
+ rmarkdown::html_document:
+    theme: cerulean
+    toc: yes
+    toc_float: yes
+    highlight: haddock
+    number_sections: true
+---
+
+# Setup
+setwd("~/Desktop/BU NSF Postdoc/Nicola_Ofav_chpt3/GitHub Versions of Code")
+
+```{r not public, include=FALSE}
+#setwd("/Volumes/GoogleDrive/My Drive/thermvar_microbes_master/thermvar_orbicella/temp_logs")
+setwd("/Volumes/GoogleDrive-104519233854090018057/My Drive/thermvar_microbes_master/thermvar_orbicella/temp_logs")
+```
+
+```{r libraries}
+library(ggplot2)
+library(lubridate)
+library(cowplot)
+library(dplyr)
+library(car)
+library(bestNormalize)
+library(coin)
+```
+
+```{r data}
+temp.all <- read.csv("hobo_all.csv")
+```
+
+## Date cleaning
+
+```{r}
+str(temp.all)
+
+temp.all$datetime <- mdy_hm(temp.all$Date.Time..EST.,tz=Sys.timezone())
+
+#me trying to get R to understand my date formatting
+temp.all$date <- paste(temp.all$year,"/",temp.all$mon,"/",temp.all$day)
+temp.all$date <- gsub(' ', '', temp.all$date)
+temp.all$date <- as.Date(temp.all$date,format="%Y/%m/%d")
+str(temp.all)
+
+temp.all$treatment <- factor(temp.all$treatment,levels=c("var","con"))
+```
+
+# Processing & plotting data
+
+## Plot with all data
+
+```{r}
+ggplot(data=temp.all,aes(x=log_number,y=temp,color=treatment,group=treatment))+
+  geom_line()+
+  scale_color_manual(values=c("#D66982","#B9C184"),labels=c("TV","Ctrl"))+
+  theme_bw()
+
+#ggsave("temp.all.pdf")
+```
+
+## Data subset - just 90 day acclimation
+
+```{r}
+temp.90 <- subset(temp.all,log_number>=760&log_number<=9844) #should be approximately 10am on 8/21, then midnight on 11/24 (might update later)
+ggplot(data=temp.90,aes(x=datetime,y=temp,color=treatment,group=treatment,linetype=treatment))+
+  scale_linetype_manual(name="Treat",values=c("twodash","solid"),labels=c("TV","Ctrl"))+
+  geom_line()+
+  #geom_hline(yintercept=25.67,linetype=2)+
+  theme_bw()+
+  scale_color_manual(name="Treat",values=c("#D66982","#B9C184"),labels=c("TV","Ctrl"))+
+  theme(axis.text.x=element_text(angle=45,hjust=1))+
+  ylab("Temperature (C)")+
+  xlab("")
+  #scale_linetype_manual(values=c("solid","dotted"))
+
+#ggsave("tvm.temp.90d.pdf",height=2,width=6)
+
+##30 days instead..
+temp.30 <- subset(temp.all,log_number>=1775&log_number<4659) #should be approximately 10am on 8/21, then midnight on 11/24 (might update later)
+ggplot(data=temp.30,aes(x=datetime,y=temp,color=treatment,group=treatment,linetype=treatment))+
+  scale_linetype_manual(name="Treat",values=c("twodash","solid"),labels=c("TV","Ctrl"))+
+  geom_line()+
+  #geom_hline(yintercept=25.67,linetype=2)+
+  theme_bw()+
+  scale_color_manual(name="Treat",values=c("#D66982","#B9C184"),labels=c("TV","Ctrl"))+
+  theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())+
+  ylab("Temperature (C)")+
+  xlab("Sep - Nov")
+  #scale_linetype_manual(values=c("solid","dotted"))
+
+#ggsave("tvm.temp.30d.pdf",height=2,width=4)
+```
+
+### Summary stats
+
+```{r}
+leveneTest(temp~treatment,data=temp.90)
+wilcox.test(temp~treatment,data=temp.90)
+temp.90 %>% wilcox_effsize(temp ~ treatment)
+
+temp.90.con <- subset(temp.90,treatment=="con")
+mean(temp.90.con$temp,na.rm=T)
+sd(temp.90.con$temp,na.rm=T)
+
+temp.90.var <- subset(temp.90,treatment=="var")
+mean(temp.90.var$temp,na.rm=T)
+sd(temp.90.var$temp,na.rm=T)
+```
+
+### Daily means
+
+```{r}
+temp.90.means <- temp.90 %>%
+  group_by(date,treatment) %>%
+  summarize_at('temp',mean,na.rm=T)
+
+ggplot(temp.90.means,aes(x=date,y=temp,color=treatment))+
+  geom_boxplot()+
+  theme_bw()
+
+leveneTest(temp~treatment,data=temp.90.means) #ns
+shapiro.test(log(temp.90.means$temp)) #very sig
+
+temp.norm <- orderNorm(temp.90.means$temp)
+temp.90.means$temp.norm <- temp.norm$x.t
+shapiro.test(temp.90.means$temp.norm) #ns
+
+a1 <- aov(temp.norm~treatment,data=temp.90.means)
+summary(a1)
+
+wilcox.test(temp~treatment,data=temp.90.means)
+```
+
+## Thermal Variability
+```{r}
+daily_temp_range <- temp.90 %>%
+  filter(treatment %in% c("con", "var")) %>%
+  group_by(treatment, date) %>%
+  summarise(
+    daily_range = max(temp, na.rm = TRUE) -
+                  min(temp, na.rm = TRUE),
+    n = sum(!is.na(temp)),
+    .groups = "drop"
+  ) %>%
+  filter(n > 1)   # ensures a real range
+
+temp_range_summary <- daily_temp_range %>%
+  group_by(treatment) %>%
+  summarise(
+    mean_daily_range = mean(daily_range, na.rm = TRUE),
+    se_daily_range   = sd(daily_range, na.rm = TRUE) /
+                       sqrt(sum(!is.na(daily_range))),
+    .groups = "drop"
+  )
+temp_range_summary
+```
+
+## Data subset - just ramping up
+
+```{r}
+temp.ramp <- subset(temp.all,log_number<760) 
+ggplot(data=temp.ramp,aes(x=datetime,y=temp,color=treatment,group=treatment,linetype=treatment))+
+  geom_line()+
+  #geom_hline(yintercept=25.67,linetype=2)+
+  theme_bw()+
+  scale_color_manual(name="Treat",values=c("#D66982","#B9C184"),labels=c("TV","Ctrl"))+
+  scale_linetype_manual(name="Treat",values=c("twodash","solid"),labels=c("TV","Ctrl"))+
+  ylab("Temperature (C)")+
+  xlab("")+
+  theme(axis.text.x=element_text(angle=45,hjust=1))
+
+#ggsave("tvm.temp.ramp.pdf",height=2,width=3)
+```
+
+## Data subset - heat
+
+```{r}
+temp.heat <- subset(temp.all,log_number>9889) 
+temp.heat.tv <- subset(temp.heat,treatment=="var") 
+ggplot(data=temp.heat.tv,aes(x=datetime,y=temp))+
+  geom_line(color="pink",linetype="solid")+
+  geom_line(color="black",linetype="dotted")+
+  #geom_hline(yintercept=25.67,linetype=2)+
+  theme_bw()+
+  #scale_color_manual(name="",values=c("#ECA313"),labels=c("Heat"))+
+  ylab("Temperature (C)")+
+  xlab("")+
+  #scale_linetype_manual(name="",values="dotted",labels=c("Heat"))+
+  theme(axis.text.x=element_text(angle=45,hjust=1))
+
+#ggsave("tvm.temp.heat.pdf",height=2,width=3)
+```
+
+Averages per treatment
+
+```{r}
+temp.var <- subset(temp.90,treatment=="var")
+summary(temp.var$temp) #25.73
+
+temp.con <- subset(temp.90,treatment=="con")
+summary(temp.con$temp) #25.67
+```
+
+# Other water quality
+
+## Setup things
+
+```{r}
+library(lubridate)
+library(ggplot2)
+library("Rmisc")
+library("car")
+```
+
+```{r}
+#setwd("/Volumes/GoogleDrive-104519233854090018057/My Drive/thermvar_microbes_master/thermvar_orbicella/temp_logs")
+setwd("/Volumes/GoogleDrive/My Drive/thermvar_microbes_master/thermvar_orbicella/temp_logs")
+
+wq <- read.csv("Tank_WQ - Sheet1.csv")
+str(wq)
+wq$date <- mdy(wq$date)
+str(wq)
+```
+
+## Plot temp
+
+Not really helpful since no measurements at night
+
+```{r}
+ggplot(wq,aes(x=date,y=temperature,color=tank))+
+  geom_point()+
+  theme_bw()
+```
+
+## Salinity
+
+### Salinity plot
+
+```{r}
+# ggplot(wq,aes(x=date,y=salinity,color=tank))+
+#   geom_point()+
+#   theme_bw()+
+#   geom_smooth()
+
+ggplot(wq,aes(x=tank,y=salinity,color=tank))+
+  geom_boxplot()+
+  theme_bw()
+```
+
+### Salinity stats
+
+```{r}
+leveneTest(salinity~tank,data=wq) #ns
+shapiro.test(wq$salinity) #ns
+
+a.sal <- aov(salinity~tank,data=wq)
+summary(a.sal) #very not significant!
+```
+
+## Other nutrients
+
+```{r}
+wq <- subset(wq,tank!="Sys heat")
+```
+
+### Nitrate
+
+```{r}
+ggplot(wq,aes(x=tank,y=nitrate,color=tank))+
+  geom_boxplot()
+
+##all 0, no stats
+```
+
+### Phosphate
+
+```{r}
+ggplot(wq,aes(x=tank,y=phosphate,color=tank))+
+  geom_boxplot()
+
+leveneTest(phosphate~tank,data=wq) #ns
+shapiro.test(wq$phosphate) #sig
+
+wilcox.test(phosphate~tank,data=wq) #ns
+```
+
+### Calcium
+
+```{r}
+ggplot(wq,aes(x=tank,y=calcium,color=tank))+
+  geom_boxplot()
+
+leveneTest(calcium~tank,data=wq) #ns
+shapiro.test(wq$calcium) #sig
+
+wilcox.test(calcium~tank,data=wq) #ns
+```
+
+### Alkalinity
+
+```{r}
+ggplot(wq,aes(x=tank,y=alkalinity,color=tank))+
+  geom_boxplot()
+
+leveneTest(alkalinity~tank,data=wq) #ns
+shapiro.test(wq$alkalinity) #almost sig
+
+wilcox.test(alkalinity~tank,data=wq) #ns
+```
+
+### Magnesium
+
+```{r}
+ggplot(wq,aes(x=tank,y=magnesium,color=tank))+
+  geom_boxplot()
+
+leveneTest(magnesium~tank,data=wq) #ns
+shapiro.test(wq$magnesium) #ns
+
+wilcox.test(magnesium~tank,data=wq) #ns
+```
+
+### Summary stats
+
+```{r}
+wq.co <- subset(wq,tank=="Sys 6")
+wq.tv <- subset(wq,tank=="Sys 8")
+
+##salinity
+mean(wq.co$salinity,na.rm=TRUE)
+sd(wq.co$salinity,na.rm=TRUE)
+
+mean(wq.tv$salinity,na.rm=TRUE)
+sd(wq.tv$salinity,na.rm=TRUE)
+
+##nitrate
+mean(wq.co$nitrate,na.rm=TRUE)
+sd(wq.co$nitrate,na.rm=TRUE)
+
+mean(wq.tv$nitrate,na.rm=TRUE)
+sd(wq.tv$nitrate,na.rm=TRUE)
+
+##phosphate
+mean(wq.co$phosphate,na.rm=TRUE)
+sd(wq.co$phosphate,na.rm=TRUE)
+
+mean(wq.tv$phosphate,na.rm=TRUE)
+sd(wq.tv$phosphate,na.rm=TRUE)
+
+##calcium
+mean(wq.co$calcium,na.rm=TRUE)
+sd(wq.co$calcium,na.rm=TRUE)
+
+mean(wq.tv$calcium,na.rm=TRUE)
+sd(wq.tv$calcium,na.rm=TRUE)
+
+##alkalinity
+mean(wq.co$alkalinity,na.rm=TRUE)
+sd(wq.co$alkalinity,na.rm=TRUE)
+
+mean(wq.tv$alkalinity,na.rm=TRUE)
+sd(wq.tv$alkalinity,na.rm=TRUE)
+
+##magnesium
+mean(wq.co$magnesium,na.rm=TRUE)
+sd(wq.co$magnesium,na.rm=TRUE)
+
+mean(wq.tv$magnesium,na.rm=TRUE)
+sd(wq.tv$magnesium,na.rm=TRUE)
+
+
+```
+
+

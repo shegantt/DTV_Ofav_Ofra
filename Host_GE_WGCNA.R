@@ -372,6 +372,7 @@ save(MEs, moduleLabels, moduleColors, geneTreeOfra, file= "OfraNetwork_rlog_sign
 
 
 ##Start Trait Analysis here!!!
+
 #### Load Trait Data and Add Physiology rows - run before Analysis ####
 #import trait data and format dataframe for WGCNA, both coral host species
 load(file = "SamplesAndTraits_OutliersRemoved.RData")
@@ -507,6 +508,7 @@ traitOrder <- c("Control", "DTV", "Pre.heat", "Post.heat", "Control_Pre.heat","D
 # Reorder columns in datTraits
 datTraitsOutOfav<- datTraitsOutOfav[, traitOrder]
 datTraitsOutOfra<- datTraitsOutOfra[, traitOrder]
+
 
 
 ### Ofav time comparisons -- WGCNA ####
@@ -944,7 +946,7 @@ fig1
 
 #### plotting massive table of all information - module membership, genes, gene names, etc. ####
 annot=read.table("~/path/Ofav_Made_iso2geneName_16Dec2024.tab",sep="\t",quote="")
-iso2go=read.table("~/path/Ofav_Made_iso2go_9Dec2024.tab",sep="\t",quote="")
+iso2go=read.table("~/path/Ofav_Made_iso2go_nrify_16Dec2024.tab",sep="\t",quote="")
 
 probes=colnames(datExprOutOfav)
 
@@ -1385,7 +1387,7 @@ fig1
 
 ###########plotting massive table of all information - module membership, genes, gene names, etc. ####
 annot=read.table("~/path/Ofav_Made_iso2geneName_16Dec2024.tab",sep="\t",quote="")
-iso2go=read.table("~/path/Ofav_Made_iso2go_9Dec2024.tab",sep="\t",quote="")
+iso2go=read.table("~/path/Ofav_Made_iso2go_nrify_16Dec2024.tab",sep="\t",quote="")
 
 probes=colnames(datExprOutOfav)
 
@@ -1806,7 +1808,7 @@ fig1
 
 #####plotting massive table of all information - module membership, genes, gene names, etc. ####
 annot=read.table("~/path/Ofav_Made_iso2geneName_16Dec2024.tab",sep="\t",quote="")
-iso2go=read.table("~/path/Ofav_Made_iso2go_9Dec2024.tab",sep="\t",quote="")
+iso2go=read.table("~/path/Ofav_Made_iso2go_nrify_16Dec2024.tab",sep="\t",quote="")
 
 probes=colnames(datExprOutOfav)
 

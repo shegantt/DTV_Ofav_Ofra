@@ -1,13 +1,14 @@
 #####Symbiont DTV RNAseq analysis based on Colleen Boves code (https://github.com/seabove7/BelizeRT_Castillo_Bove/blob/main/RT_Host_Sym_GE.R)
 
 ###sym data
-setwd("~/path/Sym_GE")
+setwd("~/")
 
 library("DESeq2")
 library("ggplot2")
 library("ggh4x")
 library("dplyr")
 library("vegan")
+library("car")
 library("tidyverse")
 library("pheatmap")
 library("VennDiagram")
@@ -22,7 +23,7 @@ library("ggvenn")
 
 ##### First going to get the count of genes in all sym samples ####
 #read in counts
-countData <- read.table("~/Desktop/BU NSF Postdoc/Nicola_Ofav_chpt3/Realign to genomes/FinalCounts_13Nov2024/Dtrenchii_counts_fixedSNP.txt")
+countData <- read.table("~/Dtrenchii_counts_fixedSNP.txt")
 head(countData)
 length(countData[,1]) #55804 genes
 
@@ -70,7 +71,7 @@ NumSampleGenes <- data.frame(Column = names(countData), NonZeroCount = SampleGen
 
 ##### Now do real analysis with clones removed ####
 #read in counts
-countData <- read.table("~/path/Dtrenchii_counts_fixedSNP_noClones.txt")
+countData <- read.table("~/trenchii_counts_fixedSNP_noClones.txt")
 head(countData)
 length(countData[,1]) #55799 genes
 
@@ -97,14 +98,13 @@ mean(totalCounts) #33,583.53
 #Be careful here, sample names on rows are stripped from the metadata
 #in these steps, so order of samples in count table MUST match the
 #order of samples in metadata, otherwise the metadata will get jumbled
-#rt <- read.csv("~/Desktop/BU NSF Postdoc/Nicola_Ofav_chpt3/Thermvar_metadata_Apr2025_ClonesFixed.csv") #this file makes the right figures
-rt <- read.csv("~/path/THERMVAR_MAIN_METADATA_Apr25_clonesfixed.csv") #this one doesn't
+rt <- read.csv("~/THERMVAR_MAIN_METADATA_Apr25_clonesfixed.csv") #this one doesn't
 
 
-rt$Timepoint <- gsub("Preheat", "Pre-heat", rt$Time)
-rt$Timepoint <- gsub("Postheat", "Post-heat", rt$Time)
+rt$Timepoint <- gsub("Preheat", "Pre-heat", rt$Timepoint) #pre-heat = primed, post-heat = heat challenge
+rt$Timepoint <- gsub("Postheat", "Post-heat", rt$Timepoint)
 
-rt$TreatTime <- gsub("Control_Preheat", "Control_Pre-heat", rt$TreatTime)
+rt$TreatTime <- gsub("Control_Preheat", "Control_Pre-heat", rt$TreatTime) # control = stable, DTV = thermally variable
 rt$TreatTime <- gsub("Control_Postheat", "Control_Post-heat", rt$TreatTime)
 rt$TreatTime <- gsub("DTV_Preheat", "DTV_Pre-heat", rt$TreatTime)
 rt$TreatTime <- gsub("DTV_Postheat", "DTV_Post-heat", rt$TreatTime)
@@ -117,9 +117,9 @@ rt <- rt %>%
 rt <- subset(rt, !(Genotype_Original %in% c("KA", "VB")))
 
 head(rt)
-conditions=data.frame(rt$Species, rt$Treatment, rt$Time, rt$Genotype, rt$TreatTime)
+conditions=data.frame(rt$Species, rt$Treatment, rt$Timepoint, rt$Genotype, rt$TreatTime)
 nrow(conditions) #32
-names(conditions)=c("Species", "Treatment", "Time", "Genotype", "TreatTime")
+names(conditions)=c("Species", "Treatment", "Timepoint", "Genotype", "TreatTime")
 
 #Remove genes with low counts from dataset - count less than 2 in more than 90% of samples
 countData$low = apply(countData[,1:32],1,function(x){sum(x<=2)})#making new column counting number of samples with counts <=2 within each gene (host) 
@@ -142,10 +142,10 @@ nrow(countData)#2188 - maybe not good enough for WGCNA
 nrow(conditions) #32
 
 #first ran with design of experiment (next line) for initial check, then ran without design
-#dds<-DESeqDataSetFromMatrix(countData=countData, colData=conditions, design=~species+treatment*time) #can only test for the main effects species, treatment, and time
+#dds<-DESeqDataSetFromMatrix(countData=countData, colData=conditions, design=~Species+Treatment*Timepoint) #can only test for the main effects species, treatment, and time
 
-#to make venn diagrams used this one to compare among groups
-#dds<-DESeqDataSetFromMatrix(countData=countData, colData=conditions, design=~species+treatTime) 
+#to make venn diagrams and for GO analyses used this one to compare among groups
+#dds<-DESeqDataSetFromMatrix(countData=countData, colData=conditions, design=~Species+TreatTime) 
 ##ran above to look at effect of time and treatment as one variable, wasn't significant so used first design for analysis
 # I did use the treatTime design to generate PCA for this comparison, no significance was found with adonis2.
 
@@ -196,6 +196,7 @@ pca_s <- within(pca_s, Time <- factor(Time, levels=f))
 f=c('Control_Pre-heat','Control_Post-heat', 'DTV_Pre-heat', 'DTV_Post-heat')
 pca_s <- within(pca_s, TreatTime <- factor(TreatTime, levels=f))
 
+#### PCAs ####
 #all three variables on same PCA - this shows separation by treatTime (interesting)
 #cbPalette <- c( "#2C2673","#744899", "#EC4176", "#FFA45E")#treatTime colors #"#EC4176", "#EE93B0")
 cbPalette <- c("#2C2673", "#9187FF","#E24A13","#FFA45E") 
@@ -203,10 +204,11 @@ cbPalette <- c("#2C2673", "#9187FF","#E24A13","#FFA45E")
 #pdf("PCA_Host_allgenes_rlog.pdf",height=5,width=6)
 ggplot(pca_s, aes(PC1, PC2, color = TreatTime, shape=Species, group=TreatTime)) +
   geom_point(size = 4) +
+  scale_shape_manual(values=c(19, 17))+
   theme_bw() +
-  guides(color = guide_legend(title = "Treatment x Heat"), shape = guide_legend(title = "Host Species"))+
-  scale_colour_manual(values=cbPalette, labels = c("Control - Preheat", "Control - Postheat", 
-                                                   "DTV - Preheat", "DTV - Postheat"))+
+  guides(color = guide_legend(title = "DTV-priming x Heat"), shape = guide_legend(title = "Host Species"))+
+  scale_colour_manual(values=cbPalette, labels = c("Stable - Primed", "Stable - Heat", 
+                                                   "DTV - Primed", "DTV - Heat"))+
   theme( legend.title=element_text(size=14, face = "bold", color = "black"), 
          legend.text=element_text(size=14, face = "bold", color="black"),
          axis.title.x = element_text(size = 16, color = "black", face = "bold"),
@@ -278,7 +280,7 @@ ggplot(pca_s, aes(PC1, PC2, color = Treatment, shape=Species, group=Treatment)) 
 
 #faceted by species - divide within species by pre and post heating
 # New facet label names for treatment variable
-treat.labs <- c("Control", "DTV")
+treat.labs <- c("Stable", "DTV")
 names(treat.labs) <- c("control", "therm_var")
 cbPalette <- c( "#D89362", "#8F3C00")#time
 #pdf("PCA_Host_allgenes_rlog.pdf",height=5,width=6)
@@ -318,9 +320,9 @@ ggplot(pca_s, aes(PC1, PC2, color = TreatTime, shape= Genotype, group=TreatTime)
   geom_point(size = 4,stroke = 1) +
   scale_shape_manual(values=c(16,15,18,17, 21,22,23,24))+
   theme_bw() +
-  guides(color = guide_legend(title = "Treatment x Heat"), shape = guide_legend(title = "Host Species"))+
-  scale_colour_manual(values=cbPalette, labels = c("Control - Preheat", "Control - Postheat", 
-                                                   "DTV - Preheat", "DTV - Postheat"))+
+  guides(color = guide_legend(title = "DTV-priming x Heat"), shape = guide_legend(title = "Host Species"))+
+  scale_colour_manual(values=cbPalette, labels = c("Stable - Primed", "Stable - Heat", 
+                                                   "DTV - Primed", "DTV - Heat"))+
   theme(plot.title = element_text(hjust = 0.5),
         title = element_text(size=14, face = "bold", color = "black"),
         legend.title=element_text(size=14, face = "bold", color = "black"), 
@@ -338,18 +340,20 @@ ggplot(pca_s, aes(PC1, PC2, color = TreatTime, shape= Genotype, group=TreatTime)
 #faceted by treatment and species -- shows more variability in controls pre/postheat and tighter exp in therm_var
 cbPalette <- c( "#2C2673", "#9187FF","#E24A13","#FFA45E")#treatTime
 #pdf("PCA_Host_allgenes_rlog.pdf",height=5,width=6)
-ggplot(pca_s, aes(PC1, PC2, color = TreatTime, shape= Genotype, group=TreatTime)) +
+#ggplot(pca_s, aes(PC1, PC2, color = TreatTime, shape= Genotype, group=TreatTime)) + #with genotype
+ggplot(pca_s, aes(PC1, PC2, color = TreatTime, shape = Species, group=TreatTime)) +
   facet_grid2(Treatment~Species,labeller = labeller(Species = sp.labs, Treatment =treat.labs), 
-              strip = strip_themed(background_x = elem_list_rect(fill = "black"),
-                                                                    background_y = elem_list_rect(fill = c("Control"="#2C2673", "DTV"="#E24A13")), 
+              strip = strip_themed(background_x = elem_list_rect(fill = c("#8b7355", "#cdab7d")),
+                                                                    background_y = elem_list_rect(fill = c("Stable"="#2C2673", "DTV"="#E24A13")), 
                                                                     text_y = elem_list_text(size = 14, face = "bold", color = "white"),
                                                                     text_x = elem_list_text(size = 14, face = "bold", color = "white")))+
   geom_point(size = 4, stroke = 1) +
-  scale_shape_manual(values=c(16,15,18,17, 21,22,23,24))+
+  scale_shape_manual(values=c(19, 17))+
+  #scale_shape_manual(values=c(16,15,18,17, 21,22,23,24))+ #genotypes
   theme_bw() +
-  guides(color = guide_legend(title = "Treatment x Heat"), shape = guide_legend(title = "Host Species"))+
-  scale_colour_manual(values=cbPalette, labels = c("Control - Preheat", "Control - Postheat", 
-                                                   "DTV - Preheat", "DTV - Postheat"))+
+  guides(color = guide_legend(title = "DTV-priming x Heat"), shape = guide_legend(title = "Host Species"))+
+  scale_colour_manual(values=cbPalette, labels = c("Stable - Primed", "Stable - Heat", 
+                                                   "DTV - Primed", "DTV - Heat"))+
   theme(plot.title = element_text(hjust = 0.5),
         title = element_text(size=14, face = "bold", color = "black"),
         legend.title=element_text(size=14, face = "bold", color = "black"), 
@@ -643,7 +647,7 @@ library(ggbiplot) # plotting the PCA
 library(ggfortify) # plotting the PCA
 library(vegan) # running the PERMANOVA (adonis2())
 library(ggpubr) # for arranging multiple plots into single figure
-source("~/Desktop/BU NSF Postdoc/Nicola_Ofav_chpt3/RNA analysis (Genome Counts)/Sym_GE/PCAplast_function.R") # source the plasticity function
+source("~/PCAplast_function.R") # source the plasticity function
 ####this function written by Colleen Bove and is available from her github
 
 #https://github.com/seabove7/RandomFun/blob/main/Plasticity_function/PCAplast_function.R 
@@ -679,13 +683,76 @@ plast_plot <- ggplot(data = plast_out2, aes(x = TreatTime, y = dist, color = Tre
         axis.title.y = element_text(size = 16, color = "black", face = "bold"),
         axis.ticks = element_line(color = "black"))+
   annotate("text", x = min(0), y = max(20), 
-           label = "Symbiodiniaceae", hjust = 0, vjust = 1, 
+           label = "Symbiodiniaceae GE Plasticity", hjust = 0, vjust = 1, 
            size = 6, fontface = "bold", color = "black")+
   ylab("Gene Expression Plasticity")
 plast_plot
 
 #### Check significance of plasticity among groups
-#assumption checks for ANOVA 
+###See differences in variance across groups?
+tapply(plast_out2$dist, plast_out2$TreatTime, var) #probably, DTV-Heat looks way lower
+#parametric levene's test to test variance among groups
+leveneTest(plast_out2$dist ~ TreatTime, data = plast_out2) #p = 0.04602 *, sig. different variance among groups
+
+groups <- unique(plast_out2$TreatTime)
+pairwise_levene <- combn(groups, 2, function(g) {
+  sub <- plast_out2[plast_out2$TreatTime %in% g, ]
+  test <- leveneTest(dist ~ TreatTime, data = sub, center = mean)
+  data.frame(
+    group1 = g[1],
+    group2 = g[2],
+    p.value = test$`Pr(>F)`[1]
+  )
+}, simplify = FALSE)
+
+do.call(rbind, pairwise_levene)     
+#           group1            group2     p.value
+# 1      DTV_Pre-heat Control_Post-heat 0.217290269
+# 2      DTV_Pre-heat     DTV_Post-heat 0.126576451
+# 3 Control_Post-heat     DTV_Post-heat 0.008007294 ***
+
+
+#non-parametric fligner test to test variance among groups
+fligner.test(dist ~ TreatTime, data = plast_out2) #p-value = 0.05568, almost significant variance among groups
+
+groups <- unique(plast_out2$TreatTime)
+pairwise_fligner <- combn(groups, 2, function(g) {
+  sub <- plast_out2[plast_out2$TreatTime %in% g, ]
+  test <- fligner.test(dist ~ TreatTime, data = sub)
+  data.frame(
+    group1 = g[1],
+    group2 = g[2],
+    p.value = test$p.value
+  )
+}, simplify = FALSE)
+
+do.call(rbind, pairwise_fligner)
+# group1            group2   p.value
+# 1      DTV_Pre-heat Control_Post-heat 0.1836592
+# 2      DTV_Pre-heat     DTV_Post-heat 0.2346226
+# 3 Control_Post-heat     DTV_Post-heat 0.0231803 ***
+
+
+#formal test for test of variance of homogeneity
+library(nlme)
+
+# Homogeneous variance model
+m_hom <- lme(dist ~ TreatTime, random = ~1|Genotype, data = plast_out2, method = "REML")
+
+# Heterogeneous variance model (different residual variance per TreatTime)
+m_het <- lme(dist ~ TreatTime, random = ~1|Genotype,
+             weights = varIdent(form = ~1 | TreatTime),
+             data = plast_out2, method = "REML")
+# Compare models with likelihood ratio test
+anova(m_hom, m_het)
+# Model df      AIC      BIC    logLik   Test L.Ratio p-value
+# m_hom     1  5 128.5356 133.7582 -59.26781                       
+# m_het     2  7 128.2083 135.5199 -57.10414 1 vs 2 4.32735  0.1149, close but not quite significant variance among groups
+
+#levene and fig paired with the closeness to significance of fligner and lme - likely significant difference in variance of plasticity among groups
+
+
+#assumption checks for ANOVA to compare groups for amount of plasticity
 library("performance")
 m <- lm(plast_out2$dist ~ TreatTime, data = plast_out2)
 check_model(m)
@@ -851,7 +918,7 @@ ggplot() +
 # Venn with treatTime groupings, using DESeq ~Hostspecies+treatTime
 # VENN Diagram to include both up and down regulated genes in common for transplant
 resTrans1 <- results(dds, contrast=c("TreatTime","Control_Pre-heat", "Control_Post-heat"))
-resTrans2 <- results(dds, contrast=c("TreatTime","DTV_Pre-heat","control_preheat"))
+resTrans2 <- results(dds, contrast=c("TreatTime","DTV_Pre-heat","Control_Pre-heat"))
 resTrans3 <- results(dds, contrast=c("TreatTime","DTV_Post-heat","Control_Post-heat"))
 resTrans4 <- results(dds, contrast=c("TreatTime","DTV_Pre-heat","DTV_Post-heat"))
 
@@ -927,3 +994,177 @@ ggvenn(
   show_percentage = FALSE)
 
 ###Decided not to do WGCNA for Symbionts due to limited genes availale for analysis
+#### However, we did complete GO with -log10(p-value)
+
+#### GO with -log10(p-value) for Symbionts, using DESeq results from ~Species+treatTime design
+
+annot=read.table("~/GoFiles/Sym_DouganGenome/Dtrenchii_seq2genename.tab",sep="\t",quote="")
+iso2go=read.table("~/GoFiles/Sym_DouganGenome/Dtrenchii_CCMP2556_nrify2_iso2go.tab",sep="\t",quote="")
+
+## Ensure DESeq model was run with: design(dds) <- ~ Species + TreatTime and dds <- DESeq(dds)
+## These are lines 149 and 158 in the code
+
+# Extract pairwise contrasts
+res_list <- list(
+  Control_Pre_vs_Post  = results(dds, contrast=c("TreatTime","Control_Pre-heat","Control_Post-heat")),
+  DTV_Pre_vs_Control_Pre = results(dds, contrast=c("TreatTime","DTV_Pre-heat","Control_Pre-heat")),
+  DTV_Post_vs_Control_Post = results(dds, contrast=c("TreatTime","DTV_Post-heat","Control_Post-heat")),
+  DTV_Pre_vs_Post = results(dds, contrast=c("TreatTime","DTV_Pre-heat","DTV_Post-heat"))
+)
+
+# Function to create signed -log10(p-value) for a given contrast
+
+make_signed_stat <- function(res_obj){
+  
+  df <- as.data.frame(res_obj)
+  
+  # Remove NA p-values or NA log2FC
+  #df <- df[!is.na(df$pvalue) & !is.na(df$log2FoldChange), ] #if hashed out, keeps all genes, including those with NA p-values or log2FC, which will be set to 0 in the next steps
+  
+  # Replace zero p-values (numerical underflow)
+  df$pvalue[df$pvalue == 0] <- min(df$pvalue[df$pvalue > 0]) * 1e-10
+  
+  # Signed -log10(p)
+  df$signed_logp <- -log10(df$pvalue) * sign(df$log2FoldChange)
+  
+  # Output
+  out <- data.frame(
+    Gene = rownames(df),
+    SignedLogP = df$signed_logp
+  )
+  
+  return(out)
+}
+
+# Apply to all contrasts
+signed_stats <- lapply(res_list, make_signed_stat)
+
+# Name the list
+names(signed_stats) <- names(res_list)
+
+# Apply to all contrasts
+# signed_stats <- lapply(names(res_list), function(n){
+#   make_signed_stat(res_list[[n]], n)
+# })
+
+#names(signed_stats) <- names(res_list)
+# signed_stats is a list of data frames, each with Gene and SignedLogP for that contrast
+
+# Write each to a separate file for GO MWU input
+# Specify the full path to your desired folder
+output_dir <- "~GoFiles/GO_MWU_Sym_inputs_-logpvalues"
+
+# Create the directory if it doesn't exist
+dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+
+for(n in names(signed_stats)){
+  write.csv(
+    signed_stats[[n]],
+    file = file.path(output_dir, paste0(n, "_signed_logp.csv")),
+    quote = FALSE,
+    row.names = FALSE,
+  )
+}
+
+#run GO_MWU with output files from above, using the iso2go file for gene to GO mapping and the annot file for gene name mapping
+setwd("~/")
+source("gomwu.functions.R")
+#All files need to be moved into the same directory file to work, GO_MWU cannot navigate across folders
+
+# Edit these to match your data file names: 
+#input="DTV_Pre_vs_Post_signed_logp.csv" # two columns of comma-separated values: gene id, continuous measure of significance. To perform standard GO enrichment analysis based on Fisher's exact test, use binary measure (0 or 1, i.e., either sgnificant or not).
+#input="Control_Pre_vs_Post_signed_logp.csv"
+#input="DTV_Post_vs_Control_Post_signed_logp.csv"
+#input="DTV_Pre_vs_Post_signed_logp.csv"
+#Sym
+goAnnotations="Dtrenchii_CCMP2556_nrify2_iso2go.tab" # two-column, tab-delimited, one line per gene, multiple GO terms separated by semicolon. If you have multiple lines per gene, use nrify_GOtable.pl prior to running this script.
+goDatabase="go.obo" # download from http://www.geneontology.org
+goDivision="BP" # either MF, BP, or CC; MF and CC are most informative
+#MF - Molecular Function, BP - Biological Process, CC - Cellular Component
+
+gomwuStats(input, goDatabase, goAnnotations, goDivision,
+           perlPath = "perl",
+           largest = 0.50,
+           smallest = 1,
+           clusterCutHeight = 0.25
+)
+
+#DTV Pre vs Post significance: 0 MF, 0 BP, 0 CC terms
+#Control Pre vs Post significance: 0 MF, 0 BP, 0 CC terms
+#DTV Post vs Control Post significance: 0 MF, 0 BP, 0 CC terms
+#DTV Pre vs Control Pre significance: 0 MF, 0 BP, 0 CC terms
+
+#no significance - try broader categories of DTV priming or Heat challenge
+
+### GO with -log10(p-value) for Symbionts, using broader contrasts ####
+## Ensure DESeq model was run with: design(dds) <- ~ Species + Treatment*Timepoint and dds <- DESeq(dds)
+## These are lines 146 and 158 in the code
+
+# Comparison of Treatments
+res_DTV_vs_Control <- results(dds, contrast=c("Treatment","DTV","Control"))
+res_DTV_vs_Control <- res_DTV_vs_Control[res_DTV_vs_Control$baseMean > 10 & 
+                                           !is.na(res_DTV_vs_Control$pvalue) & 
+                                           !is.na(res_DTV_vs_Control$log2FoldChange), ]
+
+# Comparison of Timepoints
+res_Heat <- results(dds, contrast=c("Timepoint","Pre-heat","Post-heat"))
+res_Heat <- res_Heat[res_Heat$baseMean > 10 & 
+                       !is.na(res_Heat$pvalue) & 
+                       !is.na(res_Heat$log2FoldChange), ]
+
+# Create a named list of contrasts
+res_list <- list(
+  DTV_vs_Control = res_DTV_vs_Control,
+  Pre_vs_Post_Heat = res_Heat
+)
+
+# Apply the signed log-p function
+signed_stats <- lapply(res_list, make_signed_stat)
+
+# Specify output folder
+output_dir <- "~/GoFiles/GO_MWU_Sym_inputs_-logpvaluesBroadContrasts"
+dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+
+# Write CSVs
+for(n in names(signed_stats)){
+  write.csv(
+    signed_stats[[n]],
+    file = file.path(output_dir, paste0(n, "_signed_logp.csv")),
+    quote = FALSE,
+    row.names = FALSE
+  )
+}
+
+#run GO_MWU with output files from above, using the iso2go file for gene to GO mapping and the annot file for gene name mapping
+setwd("~/")
+source("gomwu.functions.R")
+#All files need to be moved into the same directory file to work, GO_MWU cannot navigate across folders
+
+# Edit these to match your data file names: 
+#input="Pre_vs_Post_Heat_signed_logp.csv" # two columns of comma-separated values: gene id, continuous measure of significance. To perform standard GO enrichment analysis based on Fisher's exact test, use binary measure (0 or 1, i.e., either sgnificant or not).
+input="DTV_vs_Control_signed_logp.csv"
+
+#Sym
+goAnnotations="Dtrenchii_CCMP2556_nrify2_iso2go.tab" # two-column, tab-delimited, one line per gene, multiple GO terms separated by semicolon. If you have multiple lines per gene, use nrify_GOtable.pl prior to running this script.
+goDatabase="go.obo" # download from http://www.geneontology.org
+goDivision="MF" # either MF, BP, or CC; MF and CC are most informative
+#MF - Molecular Function, BP - Biological Process, CC - Cellular Component
+
+gomwuStats(input, goDatabase, goAnnotations, goDivision,
+           perlPath = "perl",
+           largest = 0.50,
+           smallest = 1,
+           clusterCutHeight = 0.25
+)
+
+#Pre vs Post Heat significance: 0 MF, 0 BP, 0 CC terms
+#DTV vs Control significance: 0 MF, 0 BP, 0 CC terms
+
+#no significant terms again
+
+#check annotation coverage
+mean(rownames(res_Heat) %in% iso2go$V1) #0.1032448
+mean(rownames(res_DTV_vs_Control) %in% iso2go$V1) #0.1032448
+
+#low annotation coverage with limited significance, not likely to find GO terms, even with broader contrasts
+#gave up here on this analysis and made note in methods of attempt.

@@ -1,7 +1,7 @@
 #####Ofav DTV RNAseq analysis based on Colleen Boves code (https://github.com/seabove7/BelizeRT_Castillo_Bove/blob/main/RT_Host_Sym_GE.R)
 
 ###host data
-setwd("~/path/Host_GE")
+setwd("~/")
 
 library("DESeq2")
 library("ggplot2")
@@ -21,7 +21,7 @@ library("ggvenn")
 
 ##### First going to get the count of genes in all host samples ####
 #read in counts
-countData <- read.table("~/path/Ofav_counts_fixedSNP.txt")
+countData <- read.table("~/Ofav_counts_fixedSNP.txt")
 head(countData)
 length(countData[,1]) #55804 genes
 
@@ -69,7 +69,7 @@ NumSampleGenes <- data.frame(Column = names(countData), NonZeroCount = SampleGen
 
 ##### Now do real analysis with clones removed ####
 #read in counts
-countData <- read.table("~/path/Ofav_countsfixed_fixedSNP_noClones.txt")
+countData <- read.table("~/FinalCounts_13Nov2024/Ofav_countsfixed_fixedSNP_noClones.txt")
 head(countData)
 length(countData[,1]) #35826 genes
 
@@ -98,7 +98,7 @@ mean(totalCounts) #noClones- 1,031,921
 #order of samples in metadata, otherwise the metadata will get jumbled
 
 #import metadata
-rt <- read.csv("~/path/THERMVAR_MAIN_METADATA_Apr25_clonesfixed.csv")
+rt <- read.csv("~/THERMVAR_MAIN_METADATA_Apr25_clonesfixed.csv")
 
 rt$Timepoint <- gsub("Preheat", "Pre-heat", rt$Time)
 rt$Timepoint <- gsub("Postheat", "Post-heat", rt$Time)
@@ -263,6 +263,39 @@ ggplot(pca_s, aes(PC1, PC2, color = TreatTime, shape= Genotype, group=TreatTime)
                              text_x = elem_list_text(size = 14, face = "bold", color = "white")))+
   geom_point(size = 4, stroke = 1) +
   scale_shape_manual(values=c(16,15,18,17, 21,22,23,24))+
+  theme_bw() +
+  guides(color = guide_legend(title = "Treatment x Heat"), shape = guide_legend(title = "Host Genotype"))+
+  scale_colour_manual(values=cbPalette, labels = c("Control - Pre-heat", "Control - Post-heat", 
+                                                   "DTV - Pre-heat", "DTV - Post-heat"))+
+  theme( plot.title = element_text(hjust = 0.5),
+         title = element_text(size=14, face = "bold", color = "black"),
+         legend.title=element_text(size=14, face = "bold", color = "black"), 
+         legend.text=element_text(size=14, face = "bold", color="black"),
+         axis.title.x = element_text(size = 16, color = "black", face = "bold"),
+         axis.text = element_text(color = "black", size = 14, face = "bold"),
+         axis.title.y = element_text(size = 16, color = "black", face = "bold"),
+         axis.ticks = element_line(color = "black"))+
+  stat_ellipse()+
+  ggtitle("Host GE")+
+  xlab(paste0("PC1: ",pc1v,"% variance")) +
+  ylab(paste0("PC2: ",pc2v,"% variance")) 
+#dev.off()
+
+#Fig. S6 Host - faceted by treatment and species
+cbPalette <- c( "#2C2673", "#9187FF","#E24A13","#FFA45E")#treatTime
+# New facet label names for treatment variable
+treat.labs <- c("Stable", "DTV")
+names(treat.labs) <- c("control", "therm_var")
+#pdf("PCA_Host_allgenes_rlog.pdf",height=5,width=6)
+ggplot(pca_s, aes(PC1, PC2, color = TreatTime, shape= Species, group=TreatTime)) +
+  facet_grid2(Treatment~Species, labeller = labeller(species = sp.labs, treatment =treat.labs), 
+              strip = strip_themed(background_x = elem_list_rect(fill = c("O. faveolata"= "#8b7355", "O. franksi"="#cdab7d")),
+                                   background_y = elem_list_rect(fill = c("Stable"= "#2C2673", "DTV"="#E24A13")), 
+                                   text_y = elem_list_text(size = 14, face = "bold", color = "white"),
+                                   text_x = elem_list_text(size = 14, face = "bold", color = "white")))+
+  geom_point(size = 4, stroke = 1) +
+  scale_shape_manual(values=c(19, 17))+
+  #scale_shape_manual(values=c(16,15,18,17, 21,22,23,24))+ #genotype shapes
   theme_bw() +
   guides(color = guide_legend(title = "Treatment x Heat"), shape = guide_legend(title = "Host Genotype"))+
   scale_colour_manual(values=cbPalette, labels = c("Control - Pre-heat", "Control - Post-heat", 
