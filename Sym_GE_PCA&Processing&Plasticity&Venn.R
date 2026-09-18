@@ -23,7 +23,7 @@ library("ggvenn")
 
 ##### First going to get the count of genes in all sym samples ####
 #read in counts
-countData <- read.table("~/Dtrenchii_counts_fixedSNP.txt")
+countData <- read.table("Dtrenchii_counts_fixedSNP.txt")
 head(countData)
 length(countData[,1]) #55804 genes
 
@@ -71,7 +71,7 @@ NumSampleGenes <- data.frame(Column = names(countData), NonZeroCount = SampleGen
 
 ##### Now do real analysis with clones removed ####
 #read in counts
-countData <- read.table("~/trenchii_counts_fixedSNP_noClones.txt")
+countData <- read.table("~/Dtrenchii_counts_fixedSNP_noClones.txt")
 head(countData)
 length(countData[,1]) #55799 genes
 
@@ -380,6 +380,7 @@ adonis2(pca_s[,1:2] ~ Species*TreatTime, data = pca_s, by = "terms", method='eu'
 # Total             31  2613.05 1.00000 
 
 
+
 #overall PERMANOVA - no difference by host species - so omitted from formulas
 adonis2(pca_s[,1:2] ~ Species+Treatment*Time, data = pca_s, by = "terms", method='eu', na.rm = TRUE)
 #fixedSNP_noClones
@@ -396,6 +397,20 @@ adonis2(pca_s[,1:2] ~ Species+Treatment*Time, data = pca_s, by = "terms", method
 # treatment:time  1    54.58 0.02089 0.7840  0.465    
 # Residual       27  1879.59 0.71931                  
 # Total          31  2613.05 1.00000 
+
+dist_s <- vegdist(pca_s[,1:2], method = "euclidean")
+
+# PERMDISP for species
+bd_Species <- betadisper(dist_s, pca_s$Species)
+anova(bd_Species) 
+
+# PERMDISP for treatment
+bd_treat <- betadisper(dist_s, pca_s$treatment)
+anova(bd_treat) 
+
+# PERMDISP for time
+bd_time <- betadisper(dist_s, pca_s$time)
+anova(bd_time) 
 
 
 library(pairwiseAdonis) 
@@ -528,7 +543,88 @@ pairwise.adonis2(Ofav[,1:2] ~ TreatTime, data = Ofav, by = "terms", method='eu',
 # Total      7   627.06 1.00000              
 # 
 # attr(,"class")
-# [1] "pwadstrata" "list"      
+# [1] "pwadstrata" "list"  
+
+#PERMDISP
+### Check your TreatTime groups
+unique(Ofav$TreatTime)
+table(Ofav$TreatTime)
+
+
+### Create the Euclidean distance matrix
+dist_euOfav <- dist(Ofav[, 1:2], method = "euclidean")
+
+
+### Get the TreatTime groups
+groups <- unique(Ofav$TreatTime)
+
+permdisp_results <- data.frame(
+  Group1 = character(),
+  Group2 = character(),
+  F = numeric(),
+  p = numeric(),
+  stringsAsFactors = FALSE
+)
+
+### Run pairwise PERMDISP
+for (i in 1:(length(groups) - 1)) {
+  
+  for (j in (i + 1):length(groups)) {
+    
+    group1 <- groups[i]
+    group2 <- groups[j]
+    
+    # Keep only samples from these two TreatTime groups
+    keep <- Ofav$TreatTime %in% c(group1, group2)
+    
+    # Subset distance matrix
+    d_pair <- as.dist(
+      as.matrix(dist_euOfav)[keep, keep]
+    )
+    
+    # Subset grouping variable
+    group_pair <- droplevels(
+      factor(Ofav$TreatTime[keep])
+    )
+    
+    # Run PERMDISP
+    bd <- betadisper(
+      d_pair,
+      group_pair
+    )
+    
+    # Test for differences in dispersion
+    test <- anova(bd)
+    
+    # Add results
+    permdisp_results <- rbind(
+      permdisp_results,
+      data.frame(
+        Group1 = group1,
+        Group2 = group2,
+        F = test$`F value`[1],
+        p = test$`Pr(>F)`[1]
+      )
+    )
+  }
+}
+
+### Adjust p-values for multiple comparisons
+permdisp_results$p_adjusted <- p.adjust(
+  permdisp_results$p,
+  method = "BH"
+)
+
+
+### View results
+permdisp_results
+#     Group1                Group2          F         p       p_adjusted
+# 1  Control_Pre-heat      DTV_Pre-heat 0.08700435 0.7779608  0.8942747
+# 2  Control_Pre-heat Control_Post-heat 1.75696196 0.2332371  0.6465463
+# 3  Control_Pre-heat     DTV_Post-heat 0.17857599 0.6873253  0.8942747
+# 4      DTV_Pre-heat Control_Post-heat 1.41349307 0.2793927  0.6465463
+# 5      DTV_Pre-heat     DTV_Post-heat 0.01921960 0.8942747  0.8942747
+# 6 Control_Post-heat     DTV_Post-heat 1.15780379 0.3232732  0.6465463
 
 
 Ofra<-subset(pca_s, Species=="O. franksi")
@@ -578,9 +674,9 @@ pairwise.adonis2(Ofra[,1:2] ~ TreatTime, data = Ofra, by = "terms", method='eu',
 #   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 # 
 # $therm_var_preheat_vs_therm_var_postheat
-# Df SumOfSqs      R2      F Pr(>F)  
+#           Df SumOfSqs   R2      F     Pr(>F)  
 # treatTime  1   167.88 0.44781 4.8659  0.022 *
-#   Residual   6   207.01 0.55219                
+# Residual   6   207.01 0.55219                
 # Total      7   374.89 1.00000                
 # ---
 #   Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
@@ -605,6 +701,101 @@ pairwise.adonis2(Ofra[,1:2] ~ TreatTime, data = Ofra, by = "terms", method='eu',
 # 
 # attr(,"class")
 # [1] "pwadstrata" "list"   
+
+#PERMDISP OFRA
+### Check your TreatTime groups
+unique(Ofra$TreatTime)
+table(Ofra$TreatTime)
+
+
+### Create the Euclidean distance matrix
+dist_eu <- dist(Ofra[, 1:2], method = "euclidean")
+
+
+### Get the TreatTime groups
+groups <- unique(Ofra$TreatTime)
+
+
+### Create empty results table
+permdisp_results <- data.frame(
+  Group1 = character(),
+  Group2 = character(),
+  F = numeric(),
+  p = numeric(),
+  stringsAsFactors = FALSE
+)
+
+### Run pairwise PERMDISP
+for (i in 1:(length(groups) - 1)) {
+  
+  for (j in (i + 1):length(groups)) {
+    
+    group1 <- groups[i]
+    group2 <- groups[j]
+    
+    # Keep only samples from these two TreatTime groups
+    keep <- Ofra$TreatTime %in% c(group1, group2)
+    
+    # Subset distance matrix
+    d_pair <- as.dist(
+      as.matrix(dist_eu)[keep, keep]
+    )
+    
+    # Subset grouping variable
+    group_pair <- droplevels(
+      factor(Ofra$TreatTime[keep])
+    )
+    
+    # Run PERMDISP
+    bd <- betadisper(
+      d_pair,
+      group_pair
+    )
+    
+    # Test for differences in dispersion
+    test <- anova(bd)
+    
+    # Add results
+    permdisp_results <- rbind(
+      permdisp_results,
+      data.frame(
+        Group1 = group1,
+        Group2 = group2,
+        F = test$`F value`[1],
+        p = test$`Pr(>F)`[1]
+      )
+    )
+  }
+}
+
+### Adjust p-values for multiple comparisons
+permdisp_results$p_adjusted <- p.adjust(
+  permdisp_results$p,
+  method = "BH"
+)
+
+
+### View results
+permdisp_results
+
+### Adjust p-values for multiple comparisons
+permdisp_results$p_adjusted <- p.adjust(
+  permdisp_results$p,
+  method = "BH"
+)
+
+
+### View results
+permdisp_results
+#           Group1            Group2         F         p      p_adjusted
+# 1      DTV_Pre-heat  Control_Pre-heat 1.7830208 0.2302037  0.6906112
+# 2      DTV_Pre-heat Control_Post-heat 0.1224699 0.7383280  0.7383280
+# 3      DTV_Pre-heat     DTV_Post-heat 0.1382167 0.7228363  0.7383280
+# 4  Control_Pre-heat Control_Post-heat 0.8020741 0.4049688  0.7383280
+# 5  Control_Pre-heat     DTV_Post-heat 3.1543665 0.1260634  0.6906112
+# 6 Control_Post-heat     DTV_Post-heat 0.4935264 0.5086825  0.7383280
+
+
 
 AllT1<-subset(pca_s, Time=="Pre-heat")
 pairwise.adonis2(AllT1[,1:2] ~ Treatment, data = AllT1, by = "terms", method='eu', na.rm = TRUE)

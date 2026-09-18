@@ -362,7 +362,34 @@ adonis2(pca_s[,1:2] ~ Species+Treatment*Time, data = pca_s, by = "terms", method
 # time            1   1354.4 0.05884  3.8622  0.027 *  
 # treatment:time  1      3.9 0.00017  0.0111  0.988    
 # Residual       27   9468.3 0.41132                   
-# Total          31  23019.3 1.00000                 
+# Total          31  23019.3 1.00000     
+
+#PERMDISP:
+dist_s <- vegdist(pca_s[,1:2], method = "euclidean")
+
+# PERMDISP for species
+bd_Species <- betadisper(dist_s, pca_s$Species)
+anova(bd_Species)                      # or: permutest(bd_species, permutations = 999)
+# Response: Distances
+# Df Sum Sq Mean Sq F value Pr(>F)
+# Groups     1  146.3  146.31  1.1187 0.2986
+# Residuals 30 3923.4  130.78 
+
+# PERMDISP for treatment
+bd_Treatment <- betadisper(dist_s, pca_s$Treatment)
+anova(bd_Treatment)  
+# Response: Distances
+# Df  Sum Sq Mean Sq F value Pr(>F)
+# Groups     1   50.46  50.455  0.5077 0.4816
+# Residuals 30 2981.21  99.374 
+
+#PERMDIP for time
+bd_Time <- betadisper(dist_s, pca_s$Time)
+anova(bd_treatTime) 
+# Response: Distances
+# Df  Sum Sq Mean Sq F value Pr(>F)
+# Groups     1    0.11   0.114  0.0012  0.973
+# Residuals 30 2957.07  98.569  
 
 #tried with combined variable for treatment and time (Heat)
 adonis2(pca_s[,1:2] ~ Species+TreatTime, data = pca_s, by = "terms", method='eu', na.rm = TRUE)
@@ -577,6 +604,82 @@ pairwise.adonis2(pca_s[,1:2] ~ TreatTime, data = pca_s, by = "terms", method='eu
 # Residual  14  10256.2 0.99993             
 # Total     15  10256.9 1.00000  
 
+
+#PERMDISP
+### Check your TreatTime groups
+unique(pca_s$TreatTime)
+table(pca_s$TreatTime)
+
+
+### Create the Euclidean distance matrix
+dist_euAll <- dist(pca_s[, 1:2], method = "euclidean")
+
+
+### Get the TreatTime groups
+groups <- unique(pca_s$TreatTime)
+
+permdisp_results <- data.frame(
+  Group1 = character(),
+  Group2 = character(),
+  F = numeric(),
+  p = numeric(),
+  stringsAsFactors = FALSE
+)
+
+### Run pairwise PERMDISP
+for (i in 1:(length(groups) - 1)) {
+  
+  for (j in (i + 1):length(groups)) {
+    
+    group1 <- groups[i]
+    group2 <- groups[j]
+    
+    # Keep only samples from these two TreatTime groups
+    keep <- pca_s$TreatTime %in% c(group1, group2)
+    
+    # Subset distance matrix
+    d_pair <- as.dist(
+      as.matrix(dist_euAll)[keep, keep]
+    )
+    
+    # Subset grouping variable
+    group_pair <- droplevels(
+      factor(Ofav$TreatTime[keep])
+    )
+    
+    # Run PERMDISP
+    bd <- betadisper(
+      d_pair,
+      group_pair
+    )
+    
+    # Test for differences in dispersion
+    test <- anova(bd)
+    
+    # Add results
+    permdisp_results <- rbind(
+      permdisp_results,
+      data.frame(
+        Group1 = group1,
+        Group2 = group2,
+        F = test$`F value`[1],
+        p = test$`Pr(>F)`[1]
+      )
+    )
+  }
+}
+
+### Adjust p-values for multiple comparisons
+permdisp_results$p_adjusted <- p.adjust(
+  permdisp_results$p,
+  method = "BH"
+)
+
+
+### View results
+permdisp_results
+
+
 pairwise.adonis2(ofav[,1:2] ~ TreatTime, data = ofav, by = "terms", method='eu', na.rm = TRUE)
 #none were significant
 # $parent_call
@@ -617,6 +720,80 @@ pairwise.adonis2(ofav[,1:2] ~ TreatTime, data = ofav, by = "terms", method='eu',
 # treatTime  1    13.98 0.00658 0.0398  0.884
 # Residual   6  2109.79 0.99342              
 # Total      7  2123.77 1.00000   
+
+#PERMDISP
+### Check your TreatTime groups
+unique(ofav$TreatTime)
+table(ofav$TreatTime)
+
+
+### Create the Euclidean distance matrix
+dist_euOfav <- dist(0fav[, 1:2], method = "euclidean")
+
+
+### Get the TreatTime groups
+groups <- unique(ofav$TreatTime)
+
+permdisp_results <- data.frame(
+  Group1 = character(),
+  Group2 = character(),
+  F = numeric(),
+  p = numeric(),
+  stringsAsFactors = FALSE
+)
+
+### Run pairwise PERMDISP
+for (i in 1:(length(groups) - 1)) {
+  
+  for (j in (i + 1):length(groups)) {
+    
+    group1 <- groups[i]
+    group2 <- groups[j]
+    
+    # Keep only samples from these two TreatTime groups
+    keep <- ofav$TreatTime %in% c(group1, group2)
+    
+    # Subset distance matrix
+    d_pair <- as.dist(
+      as.matrix(dist_euOfav)[keep, keep]
+    )
+    
+    # Subset grouping variable
+    group_pair <- droplevels(
+      factor(ofav$TreatTime[keep])
+    )
+    
+    # Run PERMDISP
+    bd <- betadisper(
+      d_pair,
+      group_pair
+    )
+    
+    # Test for differences in dispersion
+    test <- anova(bd)
+    
+    # Add results
+    permdisp_results <- rbind(
+      permdisp_results,
+      data.frame(
+        Group1 = group1,
+        Group2 = group2,
+        F = test$`F value`[1],
+        p = test$`Pr(>F)`[1]
+      )
+    )
+  }
+}
+
+### Adjust p-values for multiple comparisons
+permdisp_results$p_adjusted <- p.adjust(
+  permdisp_results$p,
+  method = "BH"
+)
+
+
+### View results
+permdisp_results
 
 pairwise.adonis2(ofra[,1:2] ~ TreatTime, data = ofra, by = "terms", method='eu', na.rm = TRUE)
 #none were significant
@@ -701,6 +878,79 @@ pairwise.adonis2(ofra[,1:2] ~ TreatTime, data = ofra, by = "terms", method='eu',
 #   ylab(paste0("PC2: ",pc2v,"% variance")) 
 # #dev.off()
 
+#PERMDISP
+### Check your TreatTime groups
+unique(ofra$TreatTime)
+table(ofra$TreatTime)
+
+
+### Create the Euclidean distance matrix
+dist_eu <- dist(ofra[, 1:2], method = "euclidean")
+
+
+### Get the TreatTime groups
+groups <- unique(ofra$TreatTime)
+
+permdisp_results <- data.frame(
+  Group1 = character(),
+  Group2 = character(),
+  F = numeric(),
+  p = numeric(),
+  stringsAsFactors = FALSE
+)
+
+### Run pairwise PERMDISP
+for (i in 1:(length(groups) - 1)) {
+  
+  for (j in (i + 1):length(groups)) {
+    
+    group1 <- groups[i]
+    group2 <- groups[j]
+    
+    # Keep only samples from these two TreatTime groups
+    keep <- ofra$TreatTime %in% c(group1, group2)
+    
+    # Subset distance matrix
+    d_pair <- as.dist(
+      as.matrix(dist_eu)[keep, keep]
+    )
+    
+    # Subset grouping variable
+    group_pair <- droplevels(
+      factor(Ofav$TreatTime[keep])
+    )
+    
+    # Run PERMDISP
+    bd <- betadisper(
+      d_pair,
+      group_pair
+    )
+    
+    # Test for differences in dispersion
+    test <- anova(bd)
+    
+    # Add results
+    permdisp_results <- rbind(
+      permdisp_results,
+      data.frame(
+        Group1 = group1,
+        Group2 = group2,
+        F = test$`F value`[1],
+        p = test$`Pr(>F)`[1]
+      )
+    )
+  }
+}
+
+### Adjust p-values for multiple comparisons
+permdisp_results$p_adjusted <- p.adjust(
+  permdisp_results$p,
+  method = "BH"
+)
+
+
+### View results
+permdisp_results
 
 ######looks the same as rlog- stick with rlog for analyes
 
