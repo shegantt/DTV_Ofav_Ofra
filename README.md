@@ -1,5 +1,7 @@
 This code is associated with the statistical analysis of O.faveolata and O. franksi that were maintained in lab systems for one year before being acclimated to 2.4°C DTV oscillations and then exposed to a heat challenge experiment. 
 
+Manuscript associated with this analysis: https://doi.org/10.64898/2026.09.11.750923 
+
 Physiology in the form of Fv/Fm, red channel intensity, and buoyant weights were measured every 30 days throughout the experiment, concluding in 4 timepoints.
 
 Additional physiological and gene expression measures were only sampled after thermal treatment priming and at the end of the thermal experiment. These included measures of photosynthesis and dark respiration rates, DNA for ITS2 and 16S characterization, and RNA for transcriptomic analysis.
