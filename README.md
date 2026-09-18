@@ -21,6 +21,7 @@ Physiological analysis: --------------------------------------------------------
   R code for analysis of all physiological measures across timepoints -> DTV_Phys_Expt.R
 
 Gene Expression Sequence Processing: ---------------------------------------------------------------------
+
   Code for high-performance computing processing of RNA sequences    -> GE_MappingToCounts_README.txt
 
 Gene Expression Analysis: --------------------------------------------------------------------------------
@@ -37,6 +38,7 @@ Gene Expression Analysis: ------------------------------------------------------
   R code for Symbiodiniaceae RNA sequence analysis                   -> Sym_GE_PCA&Processing&Plasticity&Venn.R
 
 ITS2 - Symbiodiniaceae Community Characterization: -------------------------------------------------------
+
   Raw Symbiodiniaceae ITS2 reads                                      -> dtv_its2_rawreads.xslx
   R code for Symbiodiniaceae analysis                                 -> dtv_its2_revised.Rmd
   Metadata for Symbiodiniaceae samples                                -> dtv_its2_sampleinfo_fixed.csv
@@ -44,6 +46,7 @@ ITS2 - Symbiodiniaceae Community Characterization: -----------------------------
   Symportal output ITS2 type profiles                                 -> dtv_symportal_type_profiles.csv
 
 16S Bacterial Community Characterization: ----------------------------------------------------------------
+
   R code for 16S analysis                                             -> 
   16S taxonomy identification                                         ->
   16S ASV counts                                                      ->
