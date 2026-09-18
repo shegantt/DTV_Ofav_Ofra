@@ -27,6 +27,7 @@ Gene Expression Sequence Processing: -------------------------------------------
 Gene Expression Analysis: --------------------------------------------------------------------------------
 
   Host files:
+  
   Code for calling single-nucleotide polymorphisms for clone ID      -> DTV_SNPs_SymID_README.txt
   Isoform to gene translation file for sequence identification       -> Ofav_Made_iso2geneName_16Dec2024.tab
   Isoform to GO term identification for sequence identification      -> Ofav_Made_iso2go_nrify_16Dec2024.tab
@@ -34,6 +35,7 @@ Gene Expression Analysis: ------------------------------------------------------
   R code for Coral Host WGCNA analysis                               -> Host_GE_WGCNA.R
 
   Sybiodiniaceae files:
+  
   R code for characterizing Symbiodiniaceae communities from RNA     -> RNA-based_SymProportions.R
   R code for Symbiodiniaceae RNA sequence analysis                   -> Sym_GE_PCA&Processing&Plasticity&Venn.R
 
