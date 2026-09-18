@@ -62,6 +62,39 @@ ggplot(data=temp.all,aes(x=log_number,y=temp,color=treatment,group=treatment))+
 #ggsave("temp.all.pdf")
 ```
 
+## Plot with all data minus the control after heat ramping
+
+Remove the dip in temp when control logger removed from tanks due to tank consolidations
+```{r}
+# Confirm the exact timestamp when the ctrl logger removed because all corals were moved to the same tank for heat expt.
+temp.all %>%
+  filter(treatment == "con", temp < 23) %>%
+  summarise(dip_start = min(log_number))
+
+#consolidation_time <- ymd_hm("2020-XX-XX HH:MM", tz = Sys.timezone())  # <- replace with value from above
+# 
+# temp.clean <- temp.all %>%
+#   filter(!(treatment == "con" & datetime >= consolidation_time))
+
+dip_start <- temp.all %>%
+  filter(treatment == "con", temp < 23) %>%
+  summarise(dip_start = min(log_number)) %>%
+  pull(dip_start)
+
+temp.clean <- temp.all %>%
+  filter(!(treatment == "con" & log_number >= 10850))
+```
+Plot clean figure without dip
+```{r}
+ggplot(data=temp.clean,aes(x=datetime,y=temp,color=treatment,group=treatment))+
+  geom_line()+
+  scale_color_manual(values=c("#E24A13","#2C2673"),labels=c("TV","Ctrl"))+
+  theme_bw()
+
+#ggsave("temp.all.pdf", width = 7, height = 5, units = "in")
+```
+
+
 ## Data subset - just 90 day acclimation
 
 ```{r}
