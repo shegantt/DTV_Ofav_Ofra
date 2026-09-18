@@ -11,11 +11,13 @@ Additional physiological and gene expression measures were only sampled after th
 Metadata file: THERMVAR_MAIN_METADATA_Apr25_clonesfixed.csv
 
 Environmental Characterization: -------------------------------------------------------------------------
+
   Tank water quality measures over the experiment                     -> Tank_WQ-Sheet1.csv
   Raw temperature data for control and DTV tanks over the experiment  -> hobo_all.csv
   R code for analyzing temperature data                               -> temp_analysis.Rmd
 
 Physiological analysis: ----------------------------------------------------------------------------------
+
   R code for analysis of all physiological measures across timepoints -> DTV_Phys_Expt.R
 
 Gene Expression Sequence Processing: ---------------------------------------------------------------------
