@@ -4,7 +4,7 @@ Physiology in the form of Fv/Fm, red channel intensity, and buoyant weights were
 
 Additional physiological and gene expression measures were only sampled after thermal treatment priming and at the end of the thermal experiment. These included measures of photosynthesis and dark respiration rates, DNA for ITS2 and 16S characterization, and RNA for transcriptomic analysis.
 
-The code and files here encompass the following analyses and files.
+#### The code and files here encompass the following analyses and files. ####
 
 Metadata file: THERMVAR_MAIN_METADATA_Apr25_clonesfixed.csv
 
@@ -32,14 +32,14 @@ Gene Expression Analysis: ------------------------------------------------------
   R code for characterizing Symbiodiniaceae communities from RNA     -> RNA-based_SymProportions.R
   R code for Symbiodiniaceae RNA sequence analysis                   -> Sym_GE_PCA&Processing&Plasticity&Venn.R
 
-ITS2 - Symbiodiniaceae Community Characterization:
+ITS2 - Symbiodiniaceae Community Characterization: -------------------------------------------------------
   Raw Symbiodiniaceae ITS2 reads                                      -> dtv_its2_rawreads.xslx
   R code for Symbiodiniaceae analysis                                 -> dtv_its2_revised.Rmd
   Metadata for Symbiodiniaceae samples                                -> dtv_its2_sampleinfo_fixed.csv
   Symportal output - Taxonomy                                         -> dtv_symportal_taxa.csv
   Symportal output ITS2 type profiles                                 -> dtv_symportal_type_profiles.csv
 
-16S Bacterial Community Characterization:
+16S Bacterial Community Characterization: ----------------------------------------------------------------
   R code for 16S analysis                                             -> 
   16S taxonomy identification                                         ->
   16S ASV counts                                                      ->
