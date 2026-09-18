@@ -23,7 +23,7 @@ Physiological analysis: --------------------------------------------------------
 Gene Expression Sequence Processing: ---------------------------------------------------------------------
 
   Code for high-performance computing processing of RNA sequences    -> GE_MappingToCounts_README.txt
-
+	
 Gene Expression Analysis: --------------------------------------------------------------------------------
 
   Host files:
