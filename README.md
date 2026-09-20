@@ -55,7 +55,7 @@ Additional physiological and gene expression measures were only sampled after th
 
 | Description | File |
 |---|---|
-| Raw Symbiodiniaceae ITS2 reads | `dtv_its2_rawreads.xslx` |
+| Raw Symbiodiniaceae ITS2 reads | `dtv_its2_rawreads.xlsx` |
 | R code for Symbiodiniaceae analysis | `dtv_its2_revised.Rmd` |
 | Metadata for Symbiodiniaceae samples | `dtv_its2_sampleinfo_fixed.csv` |
 | Symportal output – Taxonomy | `dtv_symportal_taxa.csv` |
