@@ -65,7 +65,9 @@ Additional physiological and gene expression measures were only sampled after th
 
 | Description | File |
 |---|---|
-| R code for 16S analysis | *(TBD)* |
-| 16S taxonomy identification | *(TBD)* |
-| 16S ASV counts | *(TBD)* |
+| R code for making ASV table | dtv_16s_revised.Rmd|
+| R code for 16S diversity analysis | dtv.16s.div_revised.Rmd|
+| R code for 16S community level analysis | dtv.16s.community_revised.Rmd|
+| 16S taxonomy identification | silva_nr99_v138.1_wSpecies_train_set.fa.gz |
+| 16S rarefied data | dtv.ps.rare.3100.rds |
 
