@@ -383,7 +383,7 @@ library(ShortRead)
 ### Remove chloroplasts etc. 
 
 ```{r, eval=FALSE}
-samdf <- read.csv("THERMVAR_MAIN_METADATA_Apr25_clonesfixed.csv")
+samdf <- read.csv("dtv_16s_sample_info_fixed.csv")
 row.names(samdf) <- samdf$sample_name
 
 taxa <- readRDS("dtv.16s.taxa.withids.rds")
