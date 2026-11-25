@@ -61,7 +61,7 @@ Additional physiological and gene expression measures were only sampled after th
 | Symportal output – Taxonomy | `dtv_symportal_taxa.csv` |
 | Symportal output – ITS2 type profiles | `dtv_symportal_type_profiles.csv` |
 
-### 16S Bacterial Community Characterization
+### 16S – Bacterial Community Characterization
 
 | Description | File |
 |---|---|
