@@ -55,6 +55,7 @@ Additional physiological and gene expression measures were only sampled after th
 
 | Description | File |
 |---|---|
+| ITS R code and data analysis | dtv_its2_Symportal_datacode directory|
 | Raw Symbiodiniaceae ITS2 reads | `dtv_its2_rawreads.xlsx` |
 | R code for Symbiodiniaceae analysis | `dtv_its2_revised.Rmd` |
 | Metadata for Symbiodiniaceae samples | `dtv_its2_sampleinfo_fixed.csv` |
@@ -65,6 +66,7 @@ Additional physiological and gene expression measures were only sampled after th
 
 | Description | File |
 |---|---|
+| 16S R code and data analysis | dtv_16s directory|
 | R code for making ASV table | dtv_16s_revised.Rmd|
 | R code for 16S diversity analysis | dtv.16s.div_revised.Rmd|
 | R code for 16S community level analysis | dtv.16s.community_revised.Rmd|
