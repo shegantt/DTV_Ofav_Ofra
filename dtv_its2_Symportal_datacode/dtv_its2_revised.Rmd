@@ -1,0 +1,391 @@
+---
+title: "DTV - ITS2 analysis"
+author: "Nicola G. Kriefall"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output:
+ rmarkdown::html_document:
+    theme: cerulean
+    toc: yes
+    toc_float: yes
+    highlight: haddock
+    number_sections: true
+editor_options: 
+  chunk_output_type: console
+---
+
+# SymPortal pre-submission
+
+Submitting ITS2 samples to [Symportal](symportal.org)
+
+Prior to submission: retaining only paired reads that match ITS2 primer (we pooled with 16S during sequencing)
+
+```{bash setup symportal, eval=FALSE}
+# *note: most of this was written by Dr. Carly D. Kenkel
+
+# in Terminal home directory:
+# following instructions of installing BBtools from https://jgi.doe.gov/data-and-tools/bbtools/bb-tools-user-guide/installation-guide/
+# 1. download BBMap package, sftp to installation directory
+# 2. untar: 
+tar -xvzf BBMap_(version).tar.gz
+# 3. test package:
+cd bbmap
+~/bin/bbmap/stats.sh in=~/bin/bbmap/resources/phix174_ill.ref.fa.gz
+
+# primers for ITS2:
+#fwd:
+#GAATTGCAGAACTCCGTGAACC
+#rev:
+#CGGGTTCWCTTGTYTGACTTCATGC
+
+# making a sample list based on the first phrase before the underscore in the .fastq name
+ls *R1_001.fastq | cut -d '_' -f 2 > samples.list
+
+# cuts off the extra words in the .fastq files
+for file in $(cat samples.list); do mv *${file}*R1_001.fastq ${file}_R1.fastq; mv *${file}*R2_001.fastq ${file}_R2.fastq; done
+
+# gets rid of reads that still have the adaptor sequence
+# [I stopped doing this 'cause it never happened]
+#for file in $(cat samples.list); do ~/bin/bbmap/bbduk.sh in1=${file}_R1.fastq in2=${file}_R2.fastq ref=adaptors.fasta out1=${file}_R1_NoIll.fastq out2=${file}_R2_NoIll.fastq; done &>bbduk_NoIll.log
+
+##getting rid of first 4 bases (degenerate primers created them)
+for file in $(cat samples.list); do ~/bin/bbmap/bbduk.sh in1=${file}_R1.fastq in2=${file}_R2.fastq ftl=4 out1=${file}_R1_No4N.fastq out2=${file}_R2_No4N.fastq; done &>bbduk_No4N.log
+
+# only keeping reads that start with the primer
+for file in $(cat samples.list); do ~/bin/bbmap/bbduk.sh in1=${file}_R1_No4N.fastq in2=${file}_R2_No4N.fastq k=15 restrictleft=25 literal=GAATTGCAGAACTCCGTGAACC,CGGGTTCWCTTGTYTGACTTCATGC outm1=${file}_R1_ITS.fastq outu1=${file}_R1_check.fastq outm2=${file}_R2_ITS.fastq outu2=${file}_R2_check.fastq; done &>bbduk_ITS.log
+# higher k = more reads removed, but can't surpass k=20 or 21
+
+# renamed them to the shorter version again after checking
+for file in $(cat samples.list); do  mv ${file}_*R1*.fastq ${file}_R1.fastq; mv ${file}_*R2*.fastq ${file}_R2.fastq; done 
+```
+
+Then transferred all "R1.fastq" & "R2.fastq" files to the folder to be submitted to SymPortal
+
+# ITS2 analysis setup
+
+Information on Symportal output documents [here](https://github.com/didillysquat/SymPortal_framework/wiki/SymPortal-output-documents)
+
+Formatting notes:
+
+- Cleaned up file called 223_20220913T175714_DBV_20220914T011822.profiles.absolute.abund_and_meta.txt to format for phyloseq
+
+## Setup
+
+```{r packages setup, echo=FALSE}
+library(phyloseq)
+library('ggplot2')
+library('Rmisc')
+library(cowplot)
+library("ggpubr")
+library("vegan")
+library(scales)
+library(colorspace)
+
+setwd("~/Documents/thermvar_microbes_master/thermvar_orbicella/tvm_its2")
+```
+
+## Checking for no read samples
+
+```{r counts per sample, eval=F}
+counts <- read.csv('dtv_symportal_type_profiles.csv',header=TRUE,row.names=1,check.names=FALSE)
+#41 samples, 15 type profiles
+
+sort(rowSums(counts))
+counts.no0 <- counts[rowSums(counts)>0,]
+#none failed
+```
+
+## Phyloseq object - type profiles
+
+Ran once then saved to re-read in later
+
+```{r phyloseq object type profiles, eval=F}
+# import dataframe holding sample information
+samdf <- read.csv("dtv_its2_sampleinfo_fixed.csv")
+head(samdf)
+rownames(samdf) <- samdf$sample_name
+
+# import taxa info
+taxa <- read.csv("dtv_symportal_taxa.csv",header=TRUE)
+rownames(taxa) <- as.factor(taxa$ITS2_type_profile)
+mtaxa <- as.matrix(taxa)
+
+# import counts (absolute abundance from its2 type profiles)
+mcounts <- as.matrix(counts)
+
+# Construct phyloseq object 
+ps <- phyloseq(otu_table(mcounts, taxa_are_rows=FALSE),
+               sample_data(samdf),
+               tax_table(mtaxa))
+
+ps
+# phyloseq-class experiment-level object
+# otu_table()   OTU Table:         [ 15 taxa and 41 samples ]
+# sample_data() Sample Data:       [ 41 samples by 8 sample variables ]
+# tax_table()   Taxonomy Table:    [ 15 taxa by 4 taxonomic ranks ]
+
+#saveRDS(ps,file="ps.its2.rds")
+```
+
+# Plotting
+
+## Libs
+
+```{r}
+library("microshades")
+library("DHARMa")
+library("ggh4x")
+```
+
+## Re-read in data
+
+```{r}
+ps1 <- readRDS("ps.its2.RDS")
+##remove redone sample
+ps <- subset_samples(ps1, sample_name!="KA4-2")
+
+ps.rel1 <- transform_sample_counts(ps, function(x) x / sum(x))
+
+##removing duplicate clones
+ps.rel <- subset_samples(ps.rel1,genotype_original!="KA" & genotype_original!="VB")
+ps.rel
+plot_bar(ps.rel,fill="ITS2_type_profile",x="genotype")
+
+ps.fra <- subset_samples(ps.rel,host_species=="franksi")
+ps.fav <- subset_samples(ps.rel,host_species=="faveolata")
+```
+
+## Microshades plot {.tabset}
+
+### So much re-formatting
+
+```{r}
+mdf.ps1 <- prep_mdf(ps.rel,subgroup_level="Majority_ITS2_sequence")
+mdf.ps.e <- subset(mdf.ps1,OTU=="E1c") ##checking out background levels
+mdf.ps <- subset(mdf.ps1,OTU!="E1c") #removed
+
+##reorder
+mdf.ps$timepoint <- factor(mdf.ps$timepoint,levels=c("preheat","postheat"))
+
+type_groups <- c(unique(mdf.ps$Majority_ITS2_sequence))
+
+# Create a color object for the specified data
+col.mdf.ps <- create_color_dfs(mdf.ps, top_orientation = FALSE,group_level="Clade",subgroup_level="Majority_ITS2_sequence",selected_groups=c("A","B","D"),cvd=TRUE)
+
+#Extract
+col.mdf.ps.m <- col.mdf.ps$mdf
+col.mdf.ps.c <- col.mdf.ps$cdf
+
+##renames
+col.mdf.ps.m$treatment <- gsub("control", "Control",col.mdf.ps.m$treatment)
+col.mdf.ps.m$treatment <- gsub("thermvar", "DTV",col.mdf.ps.m$treatment)
+col.mdf.ps.m$timepoint <- gsub("preheat", "Pre-heat",col.mdf.ps.m$timepoint)
+col.mdf.ps.m$timepoint <- gsub("postheat", "Post-heat",col.mdf.ps.m$timepoint)
+col.mdf.ps.m$timepoint <- gsub("postheat", "Post-heat",col.mdf.ps.m$timepoint)
+col.mdf.ps.m$timepoint <- gsub("postheat", "Post-heat",col.mdf.ps.m$timepoint)
+col.mdf.ps.m$timepoint <- factor(col.mdf.ps.m$timepoint, levels=c("Pre-heat","Post-heat"))
+col.mdf.ps.m$genotype <- gsub("KA_KG", "KA-KG",col.mdf.ps.m$genotype)
+col.mdf.ps.m$genotype <- gsub("VB_VD", "VB-VD",col.mdf.ps.m$genotype)
+
+col.mdf.ps.m.fav <- subset(col.mdf.ps.m,host_species=="faveolata")
+col.mdf.ps.m.fra <- subset(col.mdf.ps.m,host_species=="franksi")
+```
+
+### The plots
+
+```{r}
+##fav
+gg.its2.fav <- ggplot(col.mdf.ps.m.fav,aes(x=genotype,y=Abundance,fill=Majority_ITS2_sequence))+
+  geom_bar(stat="identity")+
+  facet_grid(timepoint~treatment)+
+  theme_bw()+
+  xlab("Coral genet")+
+  ylab("Relative abundance")+
+  ggtitle(expression(italic("O. faveolata")))+
+  scale_fill_manual(values=c("#616161","#4E7705","#97CE2F","#098BD9"),name="Majority ITS2 seq.")+
+  theme(legend.position="none")
+gg.its2.fav
+
+##franks
+gg.its2.fra <- ggplot(col.mdf.ps.m.fra,aes(x=genotype,y=Abundance,fill=Majority_ITS2_sequence))+
+  geom_bar(stat="identity")+
+  facet_grid(timepoint~treatment)+
+  theme_bw()+
+  xlab("Coral genet")+
+  ylab(" ")+
+  ggtitle(expression(italic("O. franksi")))+
+  scale_fill_manual(values=c("#616161","#4E7705","#97CE2F","#DDFFA0","#098BD9"),name="Majority ITS2 seq.")
+
+gg.its2.both <- ggarrange(gg.its2.fav,gg.its2.fra,labels="AUTO",legend="none")
+
+##I want the franks legend
+legend <- get_legend(gg.its2.fra)
+
+gg.its2.multi <- plot_grid(
+  gg.its2.both, legend, ncol = 2,
+  rel_widths = c(1, 0.2)
+)
+gg.its2.multi
+#ggsave("gg.its2.revised.png",width=8,height=3)
+```
+
+# Mixed models
+
+## Setup
+
+```{r}
+##retaining sample sums
+otu.all <- data.frame(ps.rel@otu_table)
+sam.all <- data.frame(ps.rel@sam_data)
+row.names(otu.all)==row.names(sam.all)
+sam.all$counts.sum <- rowSums(otu.all)
+ps.rel@sam_data <- sample_data(sam.all)
+
+ps.glom <- tax_glom(ps.rel,"Majority_ITS2_sequence")
+ps.glom
+```
+
+## Trim, thoroughly
+
+```{r}
+table(ps.glom@sam_data$treatment)
+table(ps.glom@sam_data$timepoint)
+ps.glom@tax_table
+
+##percentage that includes at least 3 samples
+3/32
+
+ps.glom.trim1 <- filter_taxa(ps.glom, function(x) sum(x > 0) > (0.09*length(x)), TRUE)
+ps.glom.trim1 ##5 taxa, 32 samples
+
+##any samples missing data
+ps.glom.trim <- prune_samples(sample_sums(ps.glom.trim1) > 0, ps.glom.trim1)
+ps.glom.trim #none missing
+
+ps.glom.trim@tax_table
+
+##proportion of zeroes after
+otu.trim <- data.frame(ps.glom.trim@otu_table)
+sum(otu.trim == 0) / (ncol(otu.trim) * nrow(otu.trim)) * 100
+#68.125
+
+##before
+otu.glom <- data.frame(ps.glom@otu_table)
+sum(otu.glom == 0) / (ncol(otu.glom) * nrow(otu.glom)) * 100
+#72.91667
+```
+
+### More formatting - long form
+
+```{r}
+#create sample name column for joining
+otu.trim$sample_name <- row.names(otu.trim)
+
+#join the data sets by sample name
+otu.tot1 <- plyr::join(otu.trim,sam.all, by="sample_name", type="left")
+colnames(otu.tot1)
+
+##getting rid of some irrelevant metadata
+otu.tot <- otu.tot1 %>%
+  dplyr::select(-genotype_original,-fragment,-treat_time,-counts.sum)
+colnames(otu.tot)
+
+tot.long <- reshape::melt(otu.tot, id.vars=c("sample_name", "host_species","treatment","timepoint", "genotype"))
+
+##not sure if I need to do these:
+#add unique id for each row in the data. useful to control for overdispersion in models that assume error distributions that cannot account for it
+# sid.long$rowid <- 1:nrow(sid.long)
+# 
+# sid.long$value.pa <- sid.long$value
+# sid.long$value.pa[sid.long$value.pa>0] <- 1
+
+#saveRDS(sid.long,file="sid.long.mixmodtrim.rds")
+```
+
+# Running the statz
+
+- variable = ITS2 type
+- value = the counts for the ITS2 type
+
+```{r}
+library("glmmTMB")
+
+##option:
+#control=glmmTMBControl(profile=TRUE)
+mod.tot.ord <- glmmTMB(value~timepoint*treatment+host_species+(1|genotype)+(1|variable)+(1|variable:genotype)+(1|variable:treatment)+(1|variable:timepoint)+(1|variable:host_species)+(1|variable:timepoint:treatment), family=ordbeta, data=tot.long)
+summary(mod.tot.ord)
+
+mod.tot.ord.resid <- simulateResiduals(fittedModel = mod.tot.ord, plot = T)
+##actually not bad
+
+mod.tot.ord.noint <- update(mod.tot.ord,.~.-(1|variable:timepoint:treatment))
+anova(mod.tot.ord,mod.tot.ord.noint) #ns
+
+mod.tot.ord.trt <- update(mod.tot.ord.noint,.~.-(1|variable:treatment))
+anova(mod.tot.ord.noint,mod.tot.ord.trt) #ns
+
+mod.tot.ord.tim <- update(mod.tot.ord.noint,.~.-(1|variable:timepoint))
+anova(mod.tot.ord.noint,mod.tot.ord.tim) #sig *0.05
+
+mod.tot.ord.hos <- update(mod.tot.ord.noint,.~.-(1|variable:host_species))
+anova(mod.tot.ord.noint,mod.tot.ord.hos) #almost sig 0.09 .
+```
+
+## ggpredict
+
+```{r}
+library("ggeffects")
+
+pred.tot.ord <- ggpredict(mod.tot.ord.noint,terms=c("variable","timepoint"),type="random")
+
+plot(pred.tot.ord)
+
+pred.tot.ord$group <- factor(pred.tot.ord$group,levels=c("preheat","postheat"))
+
+ggplot(pred.tot.ord,aes(x=group,y=predicted,fill=x))+
+  geom_bar(stat="identity",position=position_dodge(1))+
+  #geom_errorbar(aes(ymin=predicted-conf.high,ymax=predicted+conf.high),width=0.1)+
+  facet_wrap(~x,scales="free")
+```
+
+## Back to the actual data
+
+```{r}
+##the actual data
+library(dplyr)
+
+ps.glom.trim.melt <- psmelt(ps.glom.trim)
+
+avg_abund_by_treatment <- ps.glom.trim.melt %>%
+  group_by(timepoint, Majority_ITS2_sequence) %>%
+  summarise(mean_abundance = mean(Abundance))
+
+avg_abund_by_treatment <- ps.glom.trim.melt %>%
+  group_by(timepoint, Majority_ITS2_sequence) %>%
+  summarise(
+    mean_abundance = mean(Abundance, na.rm = TRUE),
+    se_abundance = sd(Abundance, na.rm = TRUE) / sqrt(n())
+  )
+
+avg_abund_by_treatment$timepoint <- factor(avg_abund_by_treatment$timepoint,levels=c("preheat","postheat"))
+
+gg.avg <- ggplot(avg_abund_by_treatment,aes(x=timepoint,y=mean_abundance,fill=Majority_ITS2_sequence))+
+  geom_bar(stat="identity",color="black")+
+  facet_wrap(~Majority_ITS2_sequence,ncol=5)+
+  geom_errorbar(aes(ymin=mean_abundance-se_abundance,ymax=mean_abundance+se_abundance),width=0.2)+
+  scale_fill_manual(values=c("#616161","#4E7705","#97CE2F","#DDFFA0","#098BD9"),name="Majority ITS2 seq.")+
+  theme_bw()+
+  ylab("Mean rel. abundance")+
+  xlab("")+
+  scale_x_discrete(labels=c("Pre-heat","Post-heat"))+
+  theme(axis.text.x = element_text(angle=45,hjust=1),legend.position="none",plot.margin=margin(t=5,r=100,b=5,l=5))
+gg.avg
+```
+
+# Figure 3
+
+```{r}
+ggarrange(gg.its2.multi,gg.avg,nrow=2,heights=c(1,0.8),labels=c("","C"))
+
+#ggsave("gg.its2.revised.multi.png",width=8,height=6)
+#ggsave("gg.its2.revised.multi.pdf",width=8,height=6)
+```

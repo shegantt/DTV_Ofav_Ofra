@@ -1,0 +1,371 @@
+---
+title: "DTV - 16S community composition"
+author: "Nicola G. Kriefall"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output:
+ rmarkdown::html_document:
+    theme: cerulean
+    toc: yes
+    toc_float: yes
+    highlight: haddock
+    number_sections: true
+editor_options:
+  chunk_output_type: console
+---
+
+# Setup
+
+```{r packages used composition}
+library(stringr)
+library(ggpubr)
+library(vegan)
+library(cowplot)
+library(ggplot2)
+library(tidyverse)
+library(phyloseq)
+library("Rmisc")
+library("ggh4x")
+library("glmmTMB")
+library("DHARMa")
+library("data.table")
+library(microshades) #remotes::install_github("KarstensLab/microshades")
+```
+
+Read in data
+
+```{r read in data}
+#paths are relative to this .Rmd's folder (03.comm.comp), which is the working directory when knitting
+
+ps.clean1 <- readRDS("../01.make.asv.table/ps.ready.rds")
+
+##ASV count table (all 39 samples, before removing clonemates)
+#write.csv(data.frame(ps.clean1@otu_table),file="ready.otutab.csv")
+
+##clonemates removed (KA = KG, VB = VD; one of each pair kept)
+ps.clean <- subset_samples(ps.clean1,genotype_original!="KA" & genotype_original!="VB")
+ps.clean #31 samples
+
+samdf <- data.frame(ps.clean@sam_data)
+samdf$treat_time <- paste0(samdf$treatment,"_",samdf$timepoint)
+ps.clean@sam_data <- sample_data(samdf)
+```
+
+# PCoA (manuscript Fig. 3C)
+
+Bray-Curtis dissimilarity of relative abundances
+
+```{r pcoa rel}
+ps.rel <- transform_sample_counts(ps.clean, function(x) x / sum(x))
+
+ord.rel <- ordinate(ps.rel, "PCoA", "bray")
+round(ord.rel$values$Relative_eig[1:2]*100,1) #17.4, 9.7 - used in axis labels below
+
+plot.pcoa <- plot_ordination(ps.rel, ord.rel,color="treat_time",shape="host_species")
+plot.pcoa.data <- plot.pcoa[["data"]]
+
+##reorder
+plot.pcoa.data$treat_time <- factor(plot.pcoa.data$treat_time,levels=c("control_preheat","control_postheat","thermvar_preheat","thermvar_postheat"))
+
+gg.pcoa.rel <- ggplot(plot.pcoa.data,aes(x=Axis.1,y=Axis.2,color=treat_time,group=treat_time))+
+  stat_ellipse()+
+  geom_point(aes(shape=host_species),size=2)+
+  scale_shape_manual(name="Host",values=c(16,17),labels=c(expression(italic("O. faveolata")), expression(italic("O. franksi"))))+
+  scale_color_manual(name="Priming x Heat",values=c("#2C2673","#9187FF","#E24A13","#FFA45E"),labels=c("Stable-Primed","Stable-Heat","DTV-Primed","DTV-Heat"))+
+  labs(title="Bacterial communities")+
+  xlab(paste0("PCoA1 (",round(ord.rel$values$Relative_eig[1]*100,1),"%)"))+
+  ylab(paste0("PCoA2 (",round(ord.rel$values$Relative_eig[2]*100,1),"%)"))+
+  theme_bw()+
+  theme(legend.title=element_text(size=14, face = "bold", color = "black"),
+        legend.text=element_text(size=14, face = "bold", color="black"),
+        axis.text = element_text(color = "black", size = 14, face = "bold"),
+        axis.title.y = element_text(size = 16, color = "black", face = "bold"),
+        axis.ticks = element_line(color = "black"),title=element_text(face="bold",size=16))
+gg.pcoa.rel
+```
+
+## Multi-panel figure (manuscript Fig. 3C-D)
+
+The Shannon panel uses the per-sample diversity values saved by `../02.diversity/dtv.16s.div_revised.Rmd`, plotted the same way as in that script. P-values and the legend layout in the manuscript figure were added afterwards by hand (stats from the GLMM below and from the `lmer` models in `02.diversity`).
+
+```{r multi panel}
+df.div <- read.csv("../02.diversity/dtv.16s.alphadiv.csv")
+df.div$timepoint <- factor(gsub("preheat","Primed",gsub("postheat","Heat",df.div$timepoint)),levels=c("Primed","Heat"))
+df.div$host_species <- paste0("O. ",df.div$host_species)
+df.div$treat_time <- factor(df.div$treat_time,levels=c("contr_pre","contr_pos","therm_pre","therm_pos"))
+df.div.se <- summarySE(data=df.div,measurevar="Shannon",groupvars=c("treat_time","treatment","timepoint","host_species"))
+
+gg.shan.both <- ggplot(df.div,aes(x=timepoint,y=Shannon,shape=treat_time,fill=treat_time))+
+  geom_jitter(position = position_jitterdodge(jitter.width=0.1, seed=1),alpha=0.3,size=4)+
+  geom_errorbar(data=df.div.se,aes(ymin=Shannon-se,ymax=Shannon+se),position=position_dodge(width=0.5),width=0.2)+
+  geom_point(data=df.div.se,aes(x=timepoint,y=Shannon),position=position_dodge(width=0.5),size=5)+
+  facet_grid2(~host_species, strip = strip_themed(background_x = elem_list_rect(fill = c("#8B7355","#CDAB7D")),text_x = elem_list_text(size = 14, face = "bold.italic", color = "white")))+
+  scale_fill_manual(name="Priming x Heat",values=c("#2C2673","#9187FF","#E24A13","#FFA45E"),labels=c("Stable-Primed","Stable-Heat","DTV-Primed","DTV-Heat"))+
+  scale_shape_manual(name="Priming x Heat",values=c(22,22,23,23),labels=c("Stable-Primed","Stable-Heat","DTV-Primed","DTV-Heat"))+
+  theme_bw() +
+  theme(legend.title=element_text(size=14, face = "bold", color = "black"),
+        legend.text=element_text(size=14, face = "bold", color="black"),
+        axis.text = element_text(color = "black", size = 14, face = "bold"),
+        axis.title.y = element_text(size = 16, color = "black", face = "bold"),
+        axis.ticks = element_line(color = "black"))+
+  xlab("")+
+  ylab("Shannon index")
+
+gg.beta.alph <- ggarrange(gg.pcoa.rel,gg.shan.both,nrow=2,labels=c("C","D"))
+gg.beta.alph
+
+ggsave("fig3CD_bact.pdf",gg.beta.alph,height=6,width=6)
+ggsave("fig3CD_bact.png",gg.beta.alph,height=6,width=6)
+```
+
+# GLMM (manuscript stats for community composition)
+
+## Setup
+
+```{r glmm setup}
+##retaining sample sums
+otu.all <- data.frame(ps.clean@otu_table,check.names=FALSE)
+sam.all <- data.frame(ps.clean@sam_data)
+all(row.names(otu.all)==row.names(sam.all))
+sam.all$counts.sum <- rowSums(otu.all)
+ps.clean@sam_data <- sample_data(sam.all)
+```
+
+## Trim
+
+Keep ASVs present in > 9% of samples (i.e. at least 3 of 31)
+
+```{r glmm trim}
+table(ps.clean@sam_data$treatment)
+table(ps.clean@sam_data$timepoint)
+table(ps.clean@sam_data$host_species)
+
+ps.clean.trim1 <- filter_taxa(ps.clean, function(x) sum(x > 0) > (0.09*length(x)), TRUE)
+ps.clean.trim1 #103 taxa, 31 samples
+
+##any samples missing data
+ps.clean.trim <- prune_samples(sample_sums(ps.clean.trim1) > 0, ps.clean.trim1)
+ps.clean.trim #none missing
+
+##proportion of zeroes after
+otu.trim <- data.frame(ps.clean.trim@otu_table,check.names=FALSE)
+sum(otu.trim == 0) / (ncol(otu.trim) * nrow(otu.trim)) * 100 #84.3%
+
+##before
+otu.before <- data.frame(ps.clean@otu_table)
+sum(otu.before == 0) / (ncol(otu.before) * nrow(otu.before)) * 100 #93.3%
+```
+
+## Long format
+
+```{r glmm long}
+otu.trim$sample_name <- row.names(otu.trim)
+
+otu.tot1 <- plyr::join(otu.trim,sam.all, by="sample_name", type="left")
+
+##getting rid of some irrelevant metadata
+otu.tot <- otu.tot1 %>%
+  dplyr::select(-genotype_original,-fragment,-treat_time)
+
+tot.long <- reshape::melt(otu.tot, id.vars=c("sample_name", "host_species","treatment","timepoint", "genotype","counts.sum"))
+```
+
+## Models
+
+- variable = ASV id
+- value = the counts for ASVs
+
+```{r glmm models}
+##note: with control=glmmTMBControl(profile=TRUE) the full nb1 model gave a non-positive-definite Hessian
+##(no log-likelihood) under glmmTMB 1.1.14, so default settings are used; all models below converge
+mod.tot.nb1 <- glmmTMB(value~timepoint*treatment+host_species+offset(log(counts.sum))+(1|genotype)+(1|variable)+(1|variable:genotype)+(1|variable:treatment)+(1|variable:timepoint)+(1|variable:host_species)+(1|variable:timepoint:treatment), family=nbinom1, data=tot.long)
+summary(mod.tot.nb1)
+
+mod.tot.nb2 <- glmmTMB(value~timepoint*treatment+host_species+offset(log(counts.sum))+(1|genotype)+(1|variable)+(1|variable:genotype)+(1|variable:treatment)+(1|variable:timepoint)+(1|variable:host_species)+(1|variable:timepoint:treatment), family=nbinom2, data=tot.long)
+summary(mod.tot.nb2)
+
+##convergence checks (should all be TRUE)
+mod.tot.nb1$sdr$pdHess
+mod.tot.nb2$sdr$pdHess #FALSE: nb2 does not converge cleanly, another reason to use nb1
+
+AIC(mod.tot.nb1,mod.tot.nb2)
+mod.tot.nb1.resid <- simulateResiduals(fittedModel = mod.tot.nb1, plot = T)
+mod.tot.nb2.resid <- simulateResiduals(fittedModel = mod.tot.nb2, plot = T)
+##nb1 is better
+```
+
+Likelihood ratio tests (manuscript Fig. 3C p-values)
+
+```{r glmm lrt}
+##DTV x Heat
+mod.tot.nb1.noint <- update(mod.tot.nb1,.~.-(1|variable:timepoint:treatment))
+anova(mod.tot.nb1,mod.tot.nb1.noint) #Chisq = 1.20, p = 0.27
+
+##DTV
+mod.tot.nb1.notrt <- update(mod.tot.nb1.noint,.~.-(1|variable:treatment))
+anova(mod.tot.nb1.noint,mod.tot.nb1.notrt) #Chisq = 0, p = 1
+
+##Heat
+mod.tot.nb1.notim <- update(mod.tot.nb1.noint,.~.-(1|variable:timepoint))
+anova(mod.tot.nb1.noint,mod.tot.nb1.notim) #Chisq = 1.03, p = 0.31
+
+##Species
+mod.tot.nb1.hos<- update(mod.tot.nb1.noint,.~.-(1|variable:host_species))
+anova(mod.tot.nb1.noint,mod.tot.nb1.hos) #Chisq = 0, p = 0.99
+##all n.s., as in manuscript Fig. 3C
+```
+
+# Average relative abundance
+
+## Functions
+
+```{r functions}
+fast_melt = function(physeq){
+  # supports "naked" otu_table as `physeq` input.
+  otutab = as(otu_table(physeq), "matrix")
+  if(!taxa_are_rows(physeq)){otutab <- t(otutab)}
+  otudt = data.table(otutab, keep.rownames = TRUE)
+  setnames(otudt, "rn", "taxaID")
+  # Enforce character taxaID key
+  otudt[, taxaIDchar := as.character(taxaID)]
+  otudt[, taxaID := NULL]
+  setnames(otudt, "taxaIDchar", "taxaID")
+  # Melt count table
+  mdt = melt.data.table(otudt,
+                        id.vars = "taxaID",
+                        variable.name = "SampleID",
+                        value.name = "count")
+  # Remove zeroes, NAs
+  mdt <- mdt[count > 0][!is.na(count)]
+  # Calculate relative abundance
+  mdt[, RelativeAbundance := count / sum(count), by = SampleID]
+  if(!is.null(tax_table(physeq, errorIfNULL = FALSE))){
+    # If there is a tax_table, join with it. Otherwise, skip this join.
+    taxdt = data.table(as(tax_table(physeq, errorIfNULL = TRUE), "matrix"), keep.rownames = TRUE)
+    setnames(taxdt, "rn", "taxaID")
+    # Enforce character taxaID key
+    taxdt[, taxaIDchar := as.character(taxaID)]
+    taxdt[, taxaID := NULL]
+    setnames(taxdt, "taxaIDchar", "taxaID")
+    # Join with tax table
+    setkey(taxdt, "taxaID")
+    setkey(mdt, "taxaID")
+    mdt <- taxdt[mdt]
+  }
+  return(mdt)
+}
+
+summarize_taxa = function(physeq, Rank, GroupBy = NULL){
+  Rank <- Rank[1]
+  if(!Rank %in% rank_names(physeq)){
+    message("The argument to `Rank` was:\n", Rank,
+            "\nBut it was not found among taxonomic ranks:\n",
+            paste0(rank_names(physeq), collapse = ", "), "\n",
+            "Please check the list shown above and try again.")
+  }
+  if(!is.null(GroupBy)){
+    GroupBy <- GroupBy[1]
+    if(!GroupBy %in% sample_variables(physeq)){
+      message("The argument to `GroupBy` was:\n", GroupBy,
+              "\nBut it was not found among sample variables:\n",
+              paste0(sample_variables(physeq), collapse = ", "), "\n",
+              "Please check the list shown above and try again.")
+    }
+  }
+  # Start with fast melt
+  mdt = fast_melt(physeq)
+  if(!is.null(GroupBy)){
+    # Add the variable indicated in `GroupBy`, if provided.
+    sdt = data.table(SampleID = sample_names(physeq),
+                     var1 = get_variable(physeq, GroupBy))
+    setnames(sdt, "var1", GroupBy)
+    # Join
+    setkey(sdt, SampleID)
+    setkey(mdt, SampleID)
+    mdt <- sdt[mdt]
+  }
+  # Summarize
+  summarydt = mdt[, list(meanRA = mean(RelativeAbundance),
+                         sdRA = sd(RelativeAbundance),
+                         minRA = min(RelativeAbundance),
+                         maxRA = max(RelativeAbundance)),
+                  by = c(Rank, GroupBy)]
+  return(summarydt)
+}
+```
+
+## Phyla & families
+
+```{r phylum family summaries}
+ps.phy <- tax_glom(ps.clean,taxrank="Phylum")
+ps.phy.rel <- transform_sample_counts(ps.phy, function(x) x / sum(x))
+
+sum.phy.rel <- data.frame(summarize_taxa(ps.phy.rel, "Phylum"))
+sum.phy.rel.arr <- sum.phy.rel[order(sum.phy.rel$meanRA,decreasing=T),]
+head(sum.phy.rel.arr)
+
+ps.fam <- tax_glom(ps.clean,taxrank="Family")
+ps.fam.rel <- transform_sample_counts(ps.fam, function(x) x / sum(x))
+
+sum.fam.rel <- data.frame(summarize_taxa(ps.fam.rel, "Family"))
+sum.fam.rel.arr <- sum.fam.rel[order(sum.fam.rel$meanRA,decreasing=T),]
+head(sum.fam.rel.arr,10)
+```
+
+# Microshades plot (manuscript Fig. S8)
+
+```{r microshades}
+mdf.ps <- prep_mdf(ps.rel,subgroup_level="Family")
+
+# Create a color object for the specified data
+col.mdf.ps <- create_color_dfs(mdf.ps, top_orientation = FALSE,group_level="Phylum",subgroup_level="Family",selected_groups=c("Proteobacteria", "Bacteroidota", "Cyanobacteria", "NB1-j"),cvd=TRUE)
+
+#Extract
+col.mdf.ps.m <- col.mdf.ps$mdf
+col.mdf.ps.c <- col.mdf.ps$cdf
+
+#both species, just used for the legend
+ms.plot.both <- plot_microshades(col.mdf.ps.m, col.mdf.ps.c,x="genotype")+
+  theme_cowplot()+
+  guides(color=guide_legend("Phylum-Family"),fill=guide_legend("Phylum-Family"))
+
+col.mdf.ps.m$treatment <- gsub("control", "Stable",col.mdf.ps.m$treatment)
+col.mdf.ps.m$treatment <- gsub("thermvar", "DTV",col.mdf.ps.m$treatment)
+col.mdf.ps.m$treatment <- factor(col.mdf.ps.m$treatment, levels=c("Stable","DTV"))
+col.mdf.ps.m$timepoint <- gsub("preheat", "Primed",col.mdf.ps.m$timepoint)
+col.mdf.ps.m$timepoint <- gsub("postheat", "Heat",col.mdf.ps.m$timepoint)
+col.mdf.ps.m$timepoint <- factor(col.mdf.ps.m$timepoint, levels=c("Primed","Heat"))
+col.mdf.ps.m$genotype <- gsub("KA_KG", "KA-KG",col.mdf.ps.m$genotype)
+col.mdf.ps.m$genotype <- gsub("VB_VD", "VB-VD",col.mdf.ps.m$genotype)
+
+col.mdf.ps.m.fav <- subset(col.mdf.ps.m,host_species=="faveolata")
+col.mdf.ps.m.fra <- subset(col.mdf.ps.m,host_species=="franksi")
+
+ms.plot.fav <- plot_microshades(col.mdf.ps.m.fav, col.mdf.ps.c,x="genotype")+
+  facet_grid(timepoint~treatment,scales="free")+
+  xlab("Genet")+
+  theme_cowplot()+
+  theme(axis.text.x=element_text(angle=45,hjust=1),legend.position="none")+
+  ggtitle(expression(italic("O. faveolata")))
+ms.plot.fav
+
+ms.plot.fra <- plot_microshades(col.mdf.ps.m.fra, col.mdf.ps.c,x="genotype")+
+  facet_grid(timepoint~treatment,scales="free")+
+  xlab("Genet")+
+  theme_cowplot()+
+  theme(axis.text.x=element_text(angle=45,hjust=1),legend.position="none")+
+  ggtitle(expression(italic("O. franksi")))
+ms.plot.fra
+
+ms.plot.fav.fra <- ggarrange(ms.plot.fav,ms.plot.fra,ncol=2,labels=c("A","B"))
+
+legend <- cowplot::get_plot_component(ms.plot.both, "guide-box-right", return_all = TRUE)
+
+gg.ms.bac.multi <- plot_grid(
+  ms.plot.fav.fra, legend, ncol = 2,
+  rel_widths = c(1, 0.6)
+)
+gg.ms.bac.multi
+
+ggsave("gg.ms.bac.revised.pdf",gg.ms.bac.multi,width=10.5,height=4.5)
+ggsave("gg.ms.bac.revised.png",gg.ms.bac.multi,width=10.5,height=4.5)
+```
